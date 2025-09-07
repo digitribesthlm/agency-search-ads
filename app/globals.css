@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  .character-counter {
+    @apply text-xs text-gray-500;
+  }
+  
+  .character-counter.warning {
+    @apply text-orange-500;
+  }
+  
+  .character-counter.error {
+    @apply text-red-500;
+  }
+  
+  .status-active {
+    @apply badge badge-success;
+  }
+  
+  .status-paused {
+    @apply badge badge-warning;
+  }
+  
+  .status-removed {
+    @apply badge badge-error;
+  }
+}
+
