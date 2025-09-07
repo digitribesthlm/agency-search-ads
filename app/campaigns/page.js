@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
+import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
@@ -90,13 +90,13 @@ export default function CampaignsPage() {
           <div className="dropdown dropdown-end">
             <div tabIndex={0} role="button" className="btn btn-ghost btn-circle avatar">
               <div className="w-10 rounded-full bg-primary text-primary-content flex items-center justify-center">
-                <span className="text-sm font-bold">U</span>
+                <span className="text-sm font-bold">{session.user?.name?.[0] || 'U'}</span>
               </div>
             </div>
             <ul tabIndex={0} className="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
               <li><a>Profile</a></li>
               <li><a>Settings</a></li>
-              <li><a>Logout</a></li>
+              <li><a onClick={() => signOut()}>Logout</a></li>
             </ul>
           </div>
         </div>

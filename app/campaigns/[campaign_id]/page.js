@@ -2,21 +2,28 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { useSession, signOut } from 'next-auth/react'
 import Link from 'next/link'
 
 export default function CampaignDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const { data: session, status } = useSession()
   const [campaign, setCampaign] = useState(null)
   const [adGroups, setAdGroups] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
 
   useEffect(() => {
+    if (status === 'loading') return
+    if (!session) {
+      router.push('/login')
+      return
+    }
     if (params.campaign_id) {
       fetchCampaignData()
     }
-  }, [params.campaign_id])
+  }, [session, status, params.campaign_id])
 
   const fetchCampaignData = async () => {
     try {
@@ -57,12 +64,16 @@ export default function CampaignDetailPage() {
     return `badge ${statusClasses[status] || 'badge-neutral'}`
   }
 
-  if (isLoading) {
+  if (status === 'loading' || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="loading loading-spinner loading-lg text-primary"></div>
       </div>
     )
+  }
+
+  if (!session) {
+    return null // Will redirect to login
   }
 
   if (error) {
@@ -112,13 +123,13 @@ export default function CampaignDetailPage() {
           <div className="dropdown dropdown-end">
             <div tabIndex={0} role="button" className="btn btn-ghost btn-circle avatar">
               <div className="w-10 rounded-full bg-primary text-primary-content flex items-center justify-center">
-                <span className="text-sm font-bold">U</span>
+                <span className="text-sm font-bold">{session.user?.name?.[0] || 'U'}</span>
               </div>
             </div>
             <ul tabIndex={0} className="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
               <li><a>Profile</a></li>
               <li><a>Settings</a></li>
-              <li><a>Logout</a></li>
+              <li><a onClick={() => signOut()}>Logout</a></li>
             </ul>
           </div>
         </div>
