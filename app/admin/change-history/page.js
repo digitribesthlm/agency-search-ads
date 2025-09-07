@@ -163,9 +163,9 @@ export default function ChangeHistoryPage() {
           <div className="card-body">
             <div className="flex justify-between items-center">
               <div>
-                <h1 className="text-3xl font-bold">Change History</h1>
+                <h1 className="text-3xl font-bold">Change Overview</h1>
                 <p className="text-base-content/70 mt-2">
-                  Complete audit trail of all system changes
+                  Audit trail and analytics of all system changes
                 </p>
               </div>
               <div className="flex gap-2">
@@ -173,7 +173,7 @@ export default function ChangeHistoryPage() {
                   Back to Admin
                 </Link>
                 <Link href="/admin/pending-changes" className="btn btn-primary">
-                  Pending Changes
+                  Manage Pending Changes
                 </Link>
               </div>
             </div>
@@ -332,28 +332,86 @@ export default function ChangeHistoryPage() {
           )}
         </div>
 
-        {/* Summary Stats */}
-        <div className="card bg-base-100 shadow-lg mt-8">
-          <div className="card-body">
-            <h2 className="card-title">Summary</h2>
-            <div className="stats stats-horizontal shadow">
-              <div className="stat">
-                <div className="stat-title">Total Changes</div>
-                <div className="stat-value text-primary">{changes.length}</div>
-              </div>
-              <div className="stat">
-                <div className="stat-title">Pending</div>
-                <div className="stat-value text-warning">
-                  {changes.filter(c => c.status === 'PENDING').length}
+        {/* Analytics Overview */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+          {/* Summary Stats */}
+          <div className="card bg-base-100 shadow-lg">
+            <div className="card-body">
+              <h2 className="card-title">Summary Statistics</h2>
+              <div className="stats stats-vertical shadow">
+                <div className="stat">
+                  <div className="stat-title">Total Changes</div>
+                  <div className="stat-value text-primary">{changes.length}</div>
                 </div>
-              </div>
-              <div className="stat">
-                <div className="stat-title">Completed</div>
-                <div className="stat-value text-success">
-                  {changes.filter(c => c.status === 'COMPLETED').length}
+                <div className="stat">
+                  <div className="stat-title">Pending</div>
+                  <div className="stat-value text-warning">
+                    {changes.filter(c => c.status === 'PENDING').length}
+                  </div>
+                </div>
+                <div className="stat">
+                  <div className="stat-title">Completed</div>
+                  <div className="stat-value text-success">
+                    {changes.filter(c => c.status === 'COMPLETED').length}
+                  </div>
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Action Breakdown */}
+          <div className="card bg-base-100 shadow-lg">
+            <div className="card-body">
+              <h2 className="card-title">Action Breakdown</h2>
+              <div className="space-y-2">
+                {['ADD_HEADLINE', 'EDIT_HEADLINE', 'REMOVE_HEADLINE', 'ADD_DESCRIPTION', 'EDIT_DESCRIPTION', 'REMOVE_DESCRIPTION'].map(action => {
+                  const count = changes.filter(c => c.action === action).length
+                  if (count === 0) return null
+                  return (
+                    <div key={action} className="flex justify-between items-center">
+                      <span className="text-sm">{action.replace('_', ' ')}</span>
+                      <div className="badge badge-primary">{count}</div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Activity Timeline */}
+        <div className="card bg-base-100 shadow-lg mt-6">
+          <div className="card-body">
+            <h2 className="card-title">Recent Activity Timeline</h2>
+            <div className="space-y-4">
+              {changes.slice(0, 10).map((change, index) => (
+                <div key={change.change_id} className="flex items-center gap-4 p-3 bg-base-200 rounded-lg">
+                  <div className="flex-shrink-0">
+                    <div className={`w-3 h-3 rounded-full ${
+                      change.status === 'PENDING' ? 'bg-warning' : 'bg-success'
+                    }`}></div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-medium">{change.action.replace('_', ' ')}</span>
+                      <div className={getStatusBadge(change.status)}>
+                        {change.status}
+                      </div>
+                    </div>
+                    <div className="text-xs text-base-content/70">
+                      {change.campaign_name} → {change.ad_group_name} • {change.changed_by} • {formatDate(change.changed_at)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {changes.length > 10 && (
+              <div className="text-center mt-4">
+                <p className="text-sm text-base-content/70">
+                  Showing 10 most recent changes. Use filters above to see more.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
