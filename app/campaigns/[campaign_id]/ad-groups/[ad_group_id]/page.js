@@ -287,6 +287,20 @@ export default function AdGroupPage() {
                     </div>
                   </div>
 
+                  {/* Final URL Preview */}
+                  {ad.final_url && (
+                    <div className="mb-4">
+                      <h4 className="text-sm font-semibold text-base-content/70 mb-2">
+                        Landing Page
+                      </h4>
+                      <div className="text-sm text-primary p-2 bg-base-200 rounded break-all">
+                        <a href={ad.final_url} target="_blank" rel="noopener noreferrer" className="link link-primary">
+                          {ad.final_url}
+                        </a>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="card-actions justify-end">
                     <Link 
                       href={`/campaigns/${params.campaign_id}/ad-groups/${params.ad_group_id}/ads/${ad.ad_id}`}

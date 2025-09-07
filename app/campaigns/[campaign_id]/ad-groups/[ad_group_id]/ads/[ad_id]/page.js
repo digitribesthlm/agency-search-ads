@@ -17,6 +17,7 @@ export default function AdEditPage() {
   const [editingDescription, setEditingDescription] = useState(null)
   const [newHeadline, setNewHeadline] = useState('')
   const [newDescription, setNewDescription] = useState('')
+  const [finalUrl, setFinalUrl] = useState('')
 
   useEffect(() => {
     if (status === 'loading') return
@@ -534,6 +535,37 @@ export default function AdEditPage() {
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+
+        {/* Final URL Section */}
+        <div className="card bg-base-100 shadow-lg mt-8">
+          <div className="card-body">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Landing Page URL</h2>
+              <div className="badge badge-accent">
+                Final URL
+              </div>
+            </div>
+            
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text">Final URL (Landing Page)</span>
+              </label>
+              <input
+                type="url"
+                placeholder="https://example.com/landing-page"
+                className="input input-bordered w-full"
+                value={ad.final_url || ''}
+                onChange={(e) => setAd({
+                  ...ad,
+                  final_url: e.target.value
+                })}
+              />
+              <label className="label">
+                <span className="label-text-alt">The URL where users will land when they click your ad</span>
+              </label>
             </div>
           </div>
         </div>
