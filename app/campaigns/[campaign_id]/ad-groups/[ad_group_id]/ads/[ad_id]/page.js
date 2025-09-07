@@ -49,7 +49,7 @@ export default function AdEditPage() {
     }
   }
 
-  const handleAddHeadline = () => {
+  const handleAddHeadline = async () => {
     if (ad.headlines.length >= 15) {
       setError('Maximum 15 headlines allowed')
       return
@@ -62,27 +62,61 @@ export default function AdEditPage() {
       setError('Headline cannot exceed 30 characters')
       return
     }
-    if (ad.headlines.includes(newHeadline)) {
+    const existingHeadlines = ad.headlines.map(h => typeof h === 'string' ? h : h.text)
+    if (existingHeadlines.includes(newHeadline)) {
       setError('Duplicate headline not allowed')
       return
     }
 
-    const updatedAd = {
-      ...ad,
-      headlines: [...ad.headlines, newHeadline],
-      headline_count: ad.headline_count + 1
+    // Record the change
+    try {
+      const response = await fetch('/api/search-ads/change', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ad_id: params.ad_id,
+          campaign_id: params.campaign_id,
+          ad_group_id: params.ad_group_id,
+          campaign_name: ad.campaign_name,
+          ad_group_name: ad.ad_group_name,
+          action: 'ADD_HEADLINE',
+          field_changed: `headlines[${ad.headlines.length}]`,
+          old_value: null,
+          new_value: newHeadline
+        })
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        // Add headline with PENDING status locally
+        const updatedAd = {
+          ...ad,
+          headlines: [...ad.headlines, { 
+            text: newHeadline, 
+            isNew: true, 
+            addedAt: new Date().toISOString() 
+          }],
+          headline_count: ad.headline_count + 1
+        }
+        setAd(updatedAd)
+        setNewHeadline('')
+        setError(null)
+      } else {
+        setError(data.message || 'Failed to add headline')
+      }
+    } catch (err) {
+      setError('Failed to add headline')
+      console.error('Error adding headline:', err)
     }
-    setAd(updatedAd)
-    setNewHeadline('')
-    setError(null)
   }
 
   const handleEditHeadline = (index) => {
     setEditingHeadline(index)
-    setNewHeadline(ad.headlines[index])
+    const headlineText = typeof ad.headlines[index] === 'string' ? ad.headlines[index] : ad.headlines[index].text
+    setNewHeadline(headlineText)
   }
 
-  const handleSaveHeadline = () => {
+  const handleSaveHeadline = async () => {
     if (!newHeadline.trim()) {
       setError('Headline cannot be empty')
       return
@@ -91,38 +125,97 @@ export default function AdEditPage() {
       setError('Headline cannot exceed 30 characters')
       return
     }
-    if (ad.headlines.includes(newHeadline) && ad.headlines[editingHeadline] !== newHeadline) {
+    const existingHeadlines = ad.headlines.map(h => typeof h === 'string' ? h : h.text)
+    if (existingHeadlines.includes(newHeadline) && existingHeadlines[editingHeadline] !== newHeadline) {
       setError('Duplicate headline not allowed')
       return
     }
 
-    const updatedHeadlines = [...ad.headlines]
-    updatedHeadlines[editingHeadline] = newHeadline
-    setAd({
-      ...ad,
-      headlines: updatedHeadlines
-    })
-    setEditingHeadline(null)
-    setNewHeadline('')
-    setError(null)
+    const oldValue = typeof ad.headlines[editingHeadline] === 'string' ? ad.headlines[editingHeadline] : ad.headlines[editingHeadline].text
+
+    // Record the change
+    try {
+      const response = await fetch('/api/search-ads/change', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ad_id: params.ad_id,
+          campaign_id: params.campaign_id,
+          ad_group_id: params.ad_group_id,
+          campaign_name: ad.campaign_name,
+          ad_group_name: ad.ad_group_name,
+          action: 'EDIT_HEADLINE',
+          field_changed: `headlines[${editingHeadline}]`,
+          old_value: oldValue,
+          new_value: newHeadline
+        })
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        const updatedHeadlines = [...ad.headlines]
+        updatedHeadlines[editingHeadline] = { text: newHeadline, isNew: true, addedAt: new Date().toISOString() }
+        setAd({
+          ...ad,
+          headlines: updatedHeadlines
+        })
+        setEditingHeadline(null)
+        setNewHeadline('')
+        setError(null)
+      } else {
+        setError(data.message || 'Failed to update headline')
+      }
+    } catch (err) {
+      setError('Failed to update headline')
+      console.error('Error updating headline:', err)
+    }
   }
 
-  const handleRemoveHeadline = (index) => {
+  const handleRemoveHeadline = async (index) => {
     if (ad.headlines.length <= 1) {
       setError('At least one headline is required')
       return
     }
 
-    const updatedHeadlines = ad.headlines.filter((_, i) => i !== index)
-    setAd({
-      ...ad,
-      headlines: updatedHeadlines,
-      headline_count: ad.headline_count - 1
-    })
-    setError(null)
+    const removedHeadline = typeof ad.headlines[index] === 'string' ? ad.headlines[index] : ad.headlines[index].text
+
+    // Record the change
+    try {
+      const response = await fetch('/api/search-ads/change', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ad_id: params.ad_id,
+          campaign_id: params.campaign_id,
+          ad_group_id: params.ad_group_id,
+          campaign_name: ad.campaign_name,
+          ad_group_name: ad.ad_group_name,
+          action: 'REMOVE_HEADLINE',
+          field_changed: `headlines[${index}]`,
+          old_value: removedHeadline,
+          new_value: null
+        })
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        const updatedHeadlines = ad.headlines.filter((_, i) => i !== index)
+        setAd({
+          ...ad,
+          headlines: updatedHeadlines,
+          headline_count: ad.headline_count - 1
+        })
+        setError(null)
+      } else {
+        setError(data.message || 'Failed to remove headline')
+      }
+    } catch (err) {
+      setError('Failed to remove headline')
+      console.error('Error removing headline:', err)
+    }
   }
 
-  const handleAddDescription = () => {
+  const handleAddDescription = async () => {
     if (ad.descriptions.length >= 4) {
       setError('Maximum 4 descriptions allowed')
       return
@@ -135,27 +228,60 @@ export default function AdEditPage() {
       setError('Description cannot exceed 90 characters')
       return
     }
-    if (ad.descriptions.includes(newDescription)) {
+    const existingDescriptions = ad.descriptions.map(d => typeof d === 'string' ? d : d.text)
+    if (existingDescriptions.includes(newDescription)) {
       setError('Duplicate description not allowed')
       return
     }
 
-    const updatedAd = {
-      ...ad,
-      descriptions: [...ad.descriptions, newDescription],
-      description_count: ad.description_count + 1
+    // Record the change
+    try {
+      const response = await fetch('/api/search-ads/change', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ad_id: params.ad_id,
+          campaign_id: params.campaign_id,
+          ad_group_id: params.ad_group_id,
+          campaign_name: ad.campaign_name,
+          ad_group_name: ad.ad_group_name,
+          action: 'ADD_DESCRIPTION',
+          field_changed: `descriptions[${ad.descriptions.length}]`,
+          old_value: null,
+          new_value: newDescription
+        })
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        const updatedAd = {
+          ...ad,
+          descriptions: [...ad.descriptions, { 
+            text: newDescription, 
+            isNew: true, 
+            addedAt: new Date().toISOString() 
+          }],
+          description_count: ad.description_count + 1
+        }
+        setAd(updatedAd)
+        setNewDescription('')
+        setError(null)
+      } else {
+        setError(data.message || 'Failed to add description')
+      }
+    } catch (err) {
+      setError('Failed to add description')
+      console.error('Error adding description:', err)
     }
-    setAd(updatedAd)
-    setNewDescription('')
-    setError(null)
   }
 
   const handleEditDescription = (index) => {
     setEditingDescription(index)
-    setNewDescription(ad.descriptions[index])
+    const descriptionText = typeof ad.descriptions[index] === 'string' ? ad.descriptions[index] : ad.descriptions[index].text
+    setNewDescription(descriptionText)
   }
 
-  const handleSaveDescription = () => {
+  const handleSaveDescription = async () => {
     if (!newDescription.trim()) {
       setError('Description cannot be empty')
       return
@@ -164,70 +290,96 @@ export default function AdEditPage() {
       setError('Description cannot exceed 90 characters')
       return
     }
-    if (ad.descriptions.includes(newDescription) && ad.descriptions[editingDescription] !== newDescription) {
+    const existingDescriptions = ad.descriptions.map(d => typeof d === 'string' ? d : d.text)
+    if (existingDescriptions.includes(newDescription) && existingDescriptions[editingDescription] !== newDescription) {
       setError('Duplicate description not allowed')
       return
     }
 
-    const updatedDescriptions = [...ad.descriptions]
-    updatedDescriptions[editingDescription] = newDescription
-    setAd({
-      ...ad,
-      descriptions: updatedDescriptions
-    })
-    setEditingDescription(null)
-    setNewDescription('')
-    setError(null)
+    const oldValue = typeof ad.descriptions[editingDescription] === 'string' ? ad.descriptions[editingDescription] : ad.descriptions[editingDescription].text
+
+    // Record the change
+    try {
+      const response = await fetch('/api/search-ads/change', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ad_id: params.ad_id,
+          campaign_id: params.campaign_id,
+          ad_group_id: params.ad_group_id,
+          campaign_name: ad.campaign_name,
+          ad_group_name: ad.ad_group_name,
+          action: 'EDIT_DESCRIPTION',
+          field_changed: `descriptions[${editingDescription}]`,
+          old_value: oldValue,
+          new_value: newDescription
+        })
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        const updatedDescriptions = [...ad.descriptions]
+        updatedDescriptions[editingDescription] = { text: newDescription, isNew: true, addedAt: new Date().toISOString() }
+        setAd({
+          ...ad,
+          descriptions: updatedDescriptions
+        })
+        setEditingDescription(null)
+        setNewDescription('')
+        setError(null)
+      } else {
+        setError(data.message || 'Failed to update description')
+      }
+    } catch (err) {
+      setError('Failed to update description')
+      console.error('Error updating description:', err)
+    }
   }
 
-  const handleRemoveDescription = (index) => {
+  const handleRemoveDescription = async (index) => {
     if (ad.descriptions.length <= 1) {
       setError('At least one description is required')
       return
     }
 
-    const updatedDescriptions = ad.descriptions.filter((_, i) => i !== index)
-    setAd({
-      ...ad,
-      descriptions: updatedDescriptions,
-      description_count: ad.description_count - 1
-    })
-    setError(null)
-  }
+    const removedDescription = typeof ad.descriptions[index] === 'string' ? ad.descriptions[index] : ad.descriptions[index].text
 
-  const handleSaveAd = async () => {
-    setIsSaving(true)
+    // Record the change
     try {
-      // Create pending modification instead of direct edit
-      const pendingData = {
-        ...ad,
-        original_ad_id: params.ad_id,
-        pending_action: 'MODIFY_AD',
-        campaign_name: ad.campaign_name,
-        ad_group_name: ad.ad_group_name
-      }
-
-      const response = await fetch('/api/pending-search-ads', {
+      const response = await fetch('/api/search-ads/change', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(pendingData)
+        body: JSON.stringify({
+          ad_id: params.ad_id,
+          campaign_id: params.campaign_id,
+          ad_group_id: params.ad_group_id,
+          campaign_name: ad.campaign_name,
+          ad_group_name: ad.ad_group_name,
+          action: 'REMOVE_DESCRIPTION',
+          field_changed: `descriptions[${index}]`,
+          old_value: removedDescription,
+          new_value: null
+        })
       })
-      
+
       const data = await response.json()
-      
       if (data.success) {
+        const updatedDescriptions = ad.descriptions.filter((_, i) => i !== index)
+        setAd({
+          ...ad,
+          descriptions: updatedDescriptions,
+          description_count: ad.description_count - 1
+        })
         setError(null)
-        alert('Changes submitted for approval! You will be notified once reviewed.')
-        router.back() // Go back to ad group page
       } else {
-        setError(data.message || 'Failed to submit changes')
+        setError(data.message || 'Failed to remove description')
       }
     } catch (err) {
-      setError('Failed to submit changes')
-    } finally {
-      setIsSaving(false)
+      setError('Failed to remove description')
+      console.error('Error removing description:', err)
     }
   }
+
 
   const getStatusBadge = (status) => {
     const statusClasses = {
@@ -336,14 +488,7 @@ export default function AdEditPage() {
                   className="btn btn-outline btn-sm"
                   onClick={() => router.back()}
                 >
-                  Cancel
-                </button>
-                <button 
-                  className={`btn btn-primary btn-sm ${isSaving ? 'loading' : ''}`}
-                  onClick={handleSaveAd}
-                  disabled={isSaving}
-                >
-                  {isSaving ? 'Submitting...' : 'Submit for Approval'}
+                  Back to Ad Group
                 </button>
               </div>
             </div>
@@ -371,62 +516,79 @@ export default function AdEditPage() {
               </div>
               
               <div className="space-y-3 mb-4">
-                {ad.headlines.map((headline, index) => (
-                  <div key={index} className="flex items-center gap-2 p-3 bg-base-200 rounded-lg">
-                    {editingHeadline === index ? (
-                      <div className="flex-1 flex gap-2">
-                        <input
-                          type="text"
-                          className="input input-bordered flex-1"
-                          value={newHeadline}
-                          onChange={(e) => setNewHeadline(e.target.value)}
-                          maxLength={30}
-                        />
-                        <button 
-                          className="btn btn-success btn-sm"
-                          onClick={handleSaveHeadline}
-                        >
-                          Save
-                        </button>
-                        <button 
-                          className="btn btn-ghost btn-sm"
-                          onClick={() => {
-                            setEditingHeadline(null)
-                            setNewHeadline('')
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="flex-1">
-                          <div className="text-sm font-medium">{headline}</div>
-                          <div className="text-xs text-base-content/50">
-                            {headline.length}/30 characters
-                          </div>
+                {ad.headlines.map((headline, index) => {
+                  // Handle both string headlines (existing) and object headlines (new)
+                  const headlineText = typeof headline === 'string' ? headline : headline.text
+                  const isNewHeadline = typeof headline === 'object' && headline.isNew
+                  
+                  return (
+                    <div key={index} className={`flex items-center gap-2 p-3 rounded-lg ${
+                      isNewHeadline 
+                        ? 'bg-warning/20 border border-warning/30' 
+                        : 'bg-base-200'
+                    }`}>
+                      {editingHeadline === index ? (
+                        <div className="flex-1 flex gap-2">
+                          <input
+                            type="text"
+                            className="input input-bordered flex-1"
+                            value={newHeadline}
+                            onChange={(e) => setNewHeadline(e.target.value)}
+                            maxLength={30}
+                          />
+                          <button 
+                            className="btn btn-success btn-sm"
+                            onClick={handleSaveHeadline}
+                          >
+                            Save
+                          </button>
+                          <button 
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => {
+                              setEditingHeadline(null)
+                              setNewHeadline('')
+                            }}
+                          >
+                            Cancel
+                          </button>
                         </div>
-                        <button 
-                          className="btn btn-ghost btn-sm"
-                          onClick={() => handleEditHeadline(index)}
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
-                        <button 
-                          className="btn btn-ghost btn-sm text-error"
-                          onClick={() => handleRemoveHeadline(index)}
-                          disabled={ad.headlines.length <= 1}
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </>
-                    )}
-                  </div>
-                ))}
+                      ) : (
+                        <>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <div className="text-sm font-medium">{headlineText}</div>
+                              {isNewHeadline && (
+                                <div className="badge badge-warning badge-sm">
+                                  PENDING
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-xs text-base-content/50">
+                              {headlineText.length}/30 characters
+                            </div>
+                          </div>
+                          <button 
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => handleEditHeadline(index)}
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          <button 
+                            className="btn btn-ghost btn-sm text-error"
+                            onClick={() => handleRemoveHeadline(index)}
+                            disabled={ad.headlines.length <= 1}
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
 
               {ad.headlines.length < 15 && (
@@ -463,66 +625,83 @@ export default function AdEditPage() {
               </div>
               
               <div className="space-y-3 mb-4">
-                {ad.descriptions.map((description, index) => (
-                  <div key={index} className="flex items-start gap-2 p-3 bg-base-200 rounded-lg">
-                    {editingDescription === index ? (
-                      <div className="flex-1 flex gap-2">
-                        <textarea
-                          className="textarea textarea-bordered flex-1"
-                          value={newDescription}
-                          onChange={(e) => setNewDescription(e.target.value)}
-                          maxLength={90}
-                          rows={3}
-                        />
-                        <div className="flex flex-col gap-1">
-                          <button 
-                            className="btn btn-success btn-sm"
-                            onClick={handleSaveDescription}
-                          >
-                            Save
-                          </button>
-                          <button 
-                            className="btn btn-ghost btn-sm"
-                            onClick={() => {
-                              setEditingDescription(null)
-                              setNewDescription('')
-                            }}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="flex-1">
-                          <div className="text-sm font-medium">{description}</div>
-                          <div className="text-xs text-base-content/50">
-                            {description.length}/90 characters
+                {ad.descriptions.map((description, index) => {
+                  // Handle both string descriptions (existing) and object descriptions (new)
+                  const descriptionText = typeof description === 'string' ? description : description.text
+                  const isNewDescription = typeof description === 'object' && description.isNew
+                  
+                  return (
+                    <div key={index} className={`flex items-start gap-2 p-3 rounded-lg ${
+                      isNewDescription 
+                        ? 'bg-warning/20 border border-warning/30' 
+                        : 'bg-base-200'
+                    }`}>
+                      {editingDescription === index ? (
+                        <div className="flex-1 flex gap-2">
+                          <textarea
+                            className="textarea textarea-bordered flex-1"
+                            value={newDescription}
+                            onChange={(e) => setNewDescription(e.target.value)}
+                            maxLength={90}
+                            rows={3}
+                          />
+                          <div className="flex flex-col gap-1">
+                            <button 
+                              className="btn btn-success btn-sm"
+                              onClick={handleSaveDescription}
+                            >
+                              Save
+                            </button>
+                            <button 
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => {
+                                setEditingDescription(null)
+                                setNewDescription('')
+                              }}
+                            >
+                              Cancel
+                            </button>
                           </div>
                         </div>
-                        <div className="flex flex-col gap-1">
-                          <button 
-                            className="btn btn-ghost btn-sm"
-                            onClick={() => handleEditDescription(index)}
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                          <button 
-                            className="btn btn-ghost btn-sm text-error"
-                            onClick={() => handleRemoveDescription(index)}
-                            disabled={ad.descriptions.length <= 1}
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                ))}
+                      ) : (
+                        <>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <div className="text-sm font-medium">{descriptionText}</div>
+                              {isNewDescription && (
+                                <div className="badge badge-warning badge-sm">
+                                  PENDING
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-xs text-base-content/50">
+                              {descriptionText.length}/90 characters
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <button 
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => handleEditDescription(index)}
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                            <button 
+                              className="btn btn-ghost btn-sm text-error"
+                              onClick={() => handleRemoveDescription(index)}
+                              disabled={ad.descriptions.length <= 1}
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
 
               {ad.descriptions.length < 4 && (

@@ -8,9 +8,10 @@ import Link from 'next/link'
 export default function PendingChangesPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [pendingChanges, setPendingChanges] = useState([])
+  const [changes, setChanges] = useState([])
   const [isLoading, setIsLoading] = useState(true)
-  const [isProcessing, setIsProcessing] = useState(false)
+  const [error, setError] = useState(null)
+  const [filterStatus, setFilterStatus] = useState('PENDING')
 
   useEffect(() => {
     if (status === 'loading') return
@@ -19,80 +20,68 @@ export default function PendingChangesPage() {
       return
     }
     if (session.user.role !== 'admin') {
-      router.push('/campaigns')
+      router.push('/')
       return
     }
-    fetchPendingChanges()
-  }, [session, status])
+    fetchChanges()
+  }, [session, status, filterStatus])
 
-  const fetchPendingChanges = async () => {
+  const fetchChanges = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch('/api/pending-search-ads?approval_status=PENDING')
+      const response = await fetch(`/api/search-ads/change?status=${filterStatus}`)
       const data = await response.json()
       
       if (data.success) {
-        setPendingChanges(data.data)
+        setChanges(data.data)
+      } else {
+        setError(data.message || 'Failed to load changes')
       }
-    } catch (error) {
-      console.error('Error fetching pending changes:', error)
+    } catch (err) {
+      setError('Failed to load changes')
+      console.error('Error fetching changes:', err)
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleApprove = async (pendingId) => {
+  const handleMarkComplete = async (changeId) => {
     try {
-      setIsProcessing(true)
-      const response = await fetch(`/api/pending-search-ads/${pendingId}/approve`, {
-        method: 'POST'
+      const response = await fetch('/api/search-ads/change/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ change_id: changeId })
       })
-      const data = await response.json()
       
+      const data = await response.json()
       if (data.success) {
-        await fetchPendingChanges() // Refresh the list
-        alert('Change approved successfully!')
+        alert('Change marked as completed!')
+        fetchChanges() // Refresh the list
       } else {
-        alert('Error approving change: ' + data.message)
+        alert(data.message || 'Failed to mark as complete')
       }
-    } catch (error) {
-      alert('Error approving change')
-    } finally {
-      setIsProcessing(false)
+    } catch (err) {
+      alert('Failed to mark as complete')
+      console.error('Error marking complete:', err)
     }
   }
 
-  const handleReject = async (pendingId) => {
-    const reason = prompt('Please provide a reason for rejection:')
-    if (!reason) return
-
-    try {
-      setIsProcessing(true)
-      const response = await fetch(`/api/pending-search-ads/${pendingId}/reject`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rejection_reason: reason })
-      })
-      const data = await response.json()
-      
-      if (data.success) {
-        await fetchPendingChanges() // Refresh the list
-        alert('Change rejected successfully!')
-      } else {
-        alert('Error rejecting change: ' + data.message)
-      }
-    } catch (error) {
-      alert('Error rejecting change')
-    } finally {
-      setIsProcessing(false)
+  const getActionBadge = (action) => {
+    const actionClasses = {
+      'ADD_HEADLINE': 'badge-primary',
+      'EDIT_HEADLINE': 'badge-warning',
+      'REMOVE_HEADLINE': 'badge-error',
+      'ADD_DESCRIPTION': 'badge-secondary',
+      'EDIT_DESCRIPTION': 'badge-warning',
+      'REMOVE_DESCRIPTION': 'badge-error'
     }
+    return `badge ${actionClasses[action] || 'badge-neutral'}`
   }
 
   const getStatusBadge = (status) => {
     const statusClasses = {
-      'PENDING_APPROVAL': 'badge-warning',
-      'APPROVED': 'badge-success',
-      'REJECTED': 'badge-error'
+      'PENDING': 'badge-warning',
+      'COMPLETED': 'badge-success'
     }
     return `badge ${statusClasses[status] || 'badge-neutral'}`
   }
@@ -130,7 +119,7 @@ export default function PendingChangesPage() {
           <div className="dropdown dropdown-end">
             <div tabIndex={0} role="button" className="btn btn-ghost btn-circle avatar">
               <div className="w-10 rounded-full bg-primary text-primary-content flex items-center justify-center">
-                <span className="text-sm font-bold">{session.user?.name?.[0] || 'A'}</span>
+                <span className="text-sm font-bold">{session.user?.name?.[0] || 'U'}</span>
               </div>
             </div>
             <ul tabIndex={0} className="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
@@ -145,112 +134,141 @@ export default function PendingChangesPage() {
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-base-content">Pending Changes</h1>
-            <p className="text-base-content/70 mt-2">
-              Review and approve customer modifications to search ads
-            </p>
+        <div className="card bg-base-100 shadow-lg mb-8">
+          <div className="card-body">
+            <div className="flex justify-between items-center">
+              <div>
+                <h1 className="text-3xl font-bold">Pending Changes</h1>
+                <p className="text-base-content/70 mt-2">
+                  Review and manage changes that need to be synced with Google Ads
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Link href="/admin" className="btn btn-outline">
+                  Back to Admin
+                </Link>
+              </div>
+            </div>
           </div>
+        </div>
+
+        {/* Filter Tabs */}
+        <div className="tabs tabs-boxed mb-6">
           <button 
-            className="btn btn-outline"
-            onClick={fetchPendingChanges}
-            disabled={isLoading}
+            className={`tab ${filterStatus === 'PENDING' ? 'tab-active' : ''}`}
+            onClick={() => setFilterStatus('PENDING')}
           >
-            {isLoading ? 'Refreshing...' : 'Refresh'}
+            Pending Changes ({changes.filter(c => c.status === 'PENDING').length})
+          </button>
+          <button 
+            className={`tab ${filterStatus === 'COMPLETED' ? 'tab-active' : ''}`}
+            onClick={() => setFilterStatus('COMPLETED')}
+          >
+            Completed Changes ({changes.filter(c => c.status === 'COMPLETED').length})
           </button>
         </div>
 
-        {/* Pending Changes List */}
+        {error && (
+          <div className="alert alert-error mb-6">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>{error}</span>
+          </div>
+        )}
+
+        {/* Changes List */}
         <div className="space-y-4">
-          {pendingChanges.length === 0 ? (
-            <div className="text-center py-12">
-              <svg className="w-16 h-16 mx-auto text-base-content/30 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <h3 className="text-xl font-semibold text-base-content/70 mb-2">No pending changes</h3>
-              <p className="text-base-content/50">All changes have been processed</p>
+          {changes.length === 0 ? (
+            <div className="card bg-base-100 shadow-lg">
+              <div className="card-body text-center py-12">
+                <svg className="w-16 h-16 mx-auto text-base-content/30 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <h3 className="text-lg font-semibold mb-2">No {filterStatus.toLowerCase()} changes</h3>
+                <p className="text-base-content/70">
+                  {filterStatus === 'PENDING' 
+                    ? 'All changes have been synced with Google Ads' 
+                    : 'No completed changes yet'
+                  }
+                </p>
+              </div>
             </div>
           ) : (
-            pendingChanges.map((change) => (
-              <div key={change._id} className="card bg-base-100 shadow-lg">
+            changes.map((change) => (
+              <div key={change.change_id} className="card bg-base-100 shadow-lg">
                 <div className="card-body">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="card-title text-lg">
-                          {change.pending_action === 'CREATE_AD' ? 'New Ad' : 'Ad Modification'}
-                        </h3>
-                        <div className={getStatusBadge(change.approval_status)}>
-                          {change.approval_status}
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className={getActionBadge(change.action)}>
+                          {change.action.replace('_', ' ')}
+                        </div>
+                        <div className={getStatusBadge(change.status)}>
+                          {change.status}
+                        </div>
+                        <div className="text-sm text-base-content/70">
+                          {new Date(change.changed_at).toLocaleString()}
                         </div>
                       </div>
-                      <p className="text-base-content/70 mb-2">
-                        {change.campaign_name} → {change.ad_group_name}
-                      </p>
-                      <p className="text-sm text-base-content/50">
-                        Requested by: {change.created_by} • {new Date(change.created_at).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Headlines Preview */}
-                  <div className="mb-4">
-                    <h4 className="text-sm font-semibold text-base-content/70 mb-2">
-                      Headlines ({change.headline_count}/15)
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
-                      {change.headlines.map((headline, index) => (
-                        <div key={index} className="badge badge-outline">
-                          {headline}
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <h4 className="font-semibold text-sm text-base-content/70 mb-1">Campaign</h4>
+                          <p className="text-sm">{change.campaign_name}</p>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Descriptions Preview */}
-                  <div className="mb-4">
-                    <h4 className="text-sm font-semibold text-base-content/70 mb-2">
-                      Descriptions ({change.description_count}/4)
-                    </h4>
-                    <div className="space-y-1">
-                      {change.descriptions.map((description, index) => (
-                        <div key={index} className="text-sm text-base-content/80 p-2 bg-base-200 rounded">
-                          {description}
+                        <div>
+                          <h4 className="font-semibold text-sm text-base-content/70 mb-1">Ad Group</h4>
+                          <p className="text-sm">{change.ad_group_name}</p>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Final URL Preview */}
-                  {change.final_url && (
-                    <div className="mb-4">
-                      <h4 className="text-sm font-semibold text-base-content/70 mb-2">
-                        Landing Page
-                      </h4>
-                      <div className="text-sm text-primary p-2 bg-base-200 rounded break-all">
-                        <a href={change.final_url} target="_blank" rel="noopener noreferrer" className="link link-primary">
-                          {change.final_url}
-                        </a>
+                        <div>
+                          <h4 className="font-semibold text-sm text-base-content/70 mb-1">Field Changed</h4>
+                          <p className="text-sm font-mono">{change.field_changed}</p>
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-sm text-base-content/70 mb-1">Changed By</h4>
+                          <p className="text-sm">{change.changed_by}</p>
+                        </div>
                       </div>
-                    </div>
-                  )}
 
-                  <div className="card-actions justify-end">
-                    <button 
-                      className="btn btn-error btn-sm"
-                      onClick={() => handleReject(change.ad_id)}
-                      disabled={isProcessing}
-                    >
-                      {isProcessing ? 'Processing...' : 'Reject'}
-                    </button>
-                    <button 
-                      className="btn btn-success btn-sm"
-                      onClick={() => handleApprove(change.ad_id)}
-                      disabled={isProcessing}
-                    >
-                      {isProcessing ? 'Processing...' : 'Approve'}
-                    </button>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {change.old_value && (
+                          <div>
+                            <h4 className="font-semibold text-sm text-base-content/70 mb-1">Old Value</h4>
+                            <div className="p-3 bg-error/10 border border-error/20 rounded text-sm">
+                              {change.old_value}
+                            </div>
+                          </div>
+                        )}
+                        {change.new_value && (
+                          <div>
+                            <h4 className="font-semibold text-sm text-base-content/70 mb-1">New Value</h4>
+                            <div className="p-3 bg-success/10 border border-success/20 rounded text-sm">
+                              {change.new_value}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {change.status === 'COMPLETED' && change.completed_at && (
+                        <div className="mt-4 p-3 bg-success/10 border border-success/20 rounded">
+                          <p className="text-sm text-success">
+                            ✅ Completed by {change.completed_by} on {new Date(change.completed_at).toLocaleString()}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {change.status === 'PENDING' && (
+                      <div className="ml-4">
+                        <button
+                          className="btn btn-success btn-sm"
+                          onClick={() => handleMarkComplete(change.change_id)}
+                        >
+                          Mark as Complete
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

@@ -1,0 +1,120 @@
+Project Overview
+This is a Performance Max Ads Management System built with Next.js, MongoDB, and DaisyUI. It's designed to help agencies manage Google Ads Performance Max campaigns, assets, and track changes that need to be synced with Google Ads.
+User Types & Roles
+1. Admin Users
+Access Level: Full system access
+Key Capabilities:
+View all campaigns and asset groups
+Access the Changes Tracking page (/changes)
+Mark changes as complete
+View comprehensive change history
+Filter and manage all asset modifications
+Authentication: Role-based access with session.user.role === 'admin'
+2. Client Users
+Access Level: Limited to their own campaigns
+Key Capabilities:
+View campaigns overview (/campaigns)
+Create new Performance Max ads (/client/create-ad)
+Manage assets within specific asset groups
+Add/remove headlines, descriptions, images, videos, landing pages
+Authentication: Standard user authentication with clientId and accountId
+Application Flow & Architecture
+Main Navigation Flow
+tracking
+Data Hierarchy
+)
+Change Management System
+Change Stages & Lifecycle
+1. Asset Addition Stage
+Trigger: User adds new asset (headline, image, video, etc.)
+Process:
+Asset created with is_pending: true status
+Change logged in asset_changes collection
+needs_google_ads_update: true flag set
+Asset displays with yellow "PENDING" badge
+2. Asset Modification Stage
+Trigger: User edits existing asset
+Process:
+Asset updated in database
+Change logged with action: 'EDIT'
+needs_google_ads_update: true flag set
+3. Asset Removal Stage
+Trigger: User deletes asset
+Process:
+Asset status changed to 'REMOVED' (soft delete)
+Change logged with action: 'REMOVE'
+needs_google_ads_update: true flag set
+Asset filtered out from display
+4. Change Tracking Stage
+Admin Access: Only admins can view /changes page
+Features:
+Pending Changes Tab: Shows all changes needing Google Ads sync
+Completed Changes Tab: Shows changes marked as complete
+Filtering: By campaign, asset group, action type, date range
+Actions: "Mark as Complete" dropdown for pending changes
+5. Completion Stage
+Trigger: Admin marks change as complete
+Process:
+Change status updated to 'completed'
+needs_google_ads_update: false
+completed_at timestamp added
+completed_by user recorded
+Change Types & Actions
+Action	Description	Asset Impact	Google Ads Sync Required
+ADD	New asset created	Asset added with PENDING status	✅ Yes
+EDIT	Asset content modified	Asset updated	✅ Yes
+REMOVE	Asset deleted	Status changed to REMOVED	✅ Yes
+PAUSE	Asset paused	Status changed to PAUSED	✅ Yes
+RESUME	Asset resumed	Status changed to ACTIVE	✅ Yes
+Asset Status System
+Database Status
+ACTIVE: Asset is live and active
+PAUSED: Asset is temporarily disabled
+REMOVED: Asset is soft-deleted (filtered from display)
+Sync Status
+is_pending: true: Newly added asset, needs Google Ads sync
+needs_google_ads_update: true: Change requires manual Google Ads update
+status: 'completed': Change has been synced with Google Ads
+Performance Labels
+BEST: High-performing asset
+GOOD: Good-performing asset
+LOW: Low-performing asset
+PENDING: Performance not yet determined
+UNKNOWN: Performance data unavailable
+Key Features
+Multi-Step Ad Creation (/client/create-ad)
+Campaign Selection: Create new or use existing
+Asset Group Setup: Create new or use existing
+Headlines: Add up to 5 short headlines
+Descriptions: Add up to 4 descriptions
+Images: Select from library or upload
+Videos: Add YouTube videos by ID or select from library
+Landing Page: Set final URL
+Review & Submit: Final confirmation
+Asset Management (/campaigns/[campaignId]/[assetGroupId])
+Real-time Updates: Assets refresh after changes
+Library Integration: Reuse existing assets across campaigns
+Performance Tracking: Visual indicators for asset performance
+Bulk Operations: Add multiple assets of same type
+Change Tracking (/changes) - Admin Only
+Comprehensive Logging: Every asset change is tracked
+Visual Previews: Images, videos, and text content previews
+Filtering & Search: Multiple filter options
+Status Management: Mark changes as complete
+Audit Trail: Full history of who changed what and when
+Technical Architecture
+Database Collections
+assets: Main asset data with campaign/asset group hierarchy
+asset_changes: Change tracking and audit log
+users: User authentication and role management
+API Endpoints
+/api/assets: CRUD operations for assets
+/api/changes: Change tracking and management
+/api/changes/complete: Mark changes as complete
+/api/auth/[...nextauth]: Authentication handling
+Security Features
+Role-based Access: Admin vs client user permissions
+Session Management: NextAuth.js integration
+Data Validation: Server-side validation for all operations
+Audit Logging: Complete change tracking for compliance
+This system provides a comprehensive solution for managing Google Ads Performance Max campaigns with proper change tracking, user management, and a clear workflow for syncing changes with Google Ads.
