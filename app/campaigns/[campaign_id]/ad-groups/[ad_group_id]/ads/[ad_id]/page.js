@@ -198,23 +198,32 @@ export default function AdEditPage() {
   const handleSaveAd = async () => {
     setIsSaving(true)
     try {
-      const response = await fetch(`/api/search-ads/${params.ad_id}`, {
-        method: 'PUT',
+      // Create pending modification instead of direct edit
+      const pendingData = {
+        ...ad,
+        original_ad_id: params.ad_id,
+        pending_action: 'MODIFY_AD',
+        campaign_name: ad.campaign_name,
+        ad_group_name: ad.ad_group_name
+      }
+
+      const response = await fetch('/api/pending-search-ads', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(ad)
+        body: JSON.stringify(pendingData)
       })
       
       const data = await response.json()
       
       if (data.success) {
         setError(null)
-        // Show success message
-        alert('Ad saved successfully!')
+        alert('Changes submitted for approval! You will be notified once reviewed.')
+        router.back() // Go back to ad group page
       } else {
-        setError(data.message || 'Failed to save ad')
+        setError(data.message || 'Failed to submit changes')
       }
     } catch (err) {
-      setError('Failed to save ad')
+      setError('Failed to submit changes')
     } finally {
       setIsSaving(false)
     }
@@ -334,7 +343,7 @@ export default function AdEditPage() {
                   onClick={handleSaveAd}
                   disabled={isSaving}
                 >
-                  {isSaving ? 'Saving...' : 'Save Changes'}
+                  {isSaving ? 'Submitting...' : 'Submit for Approval'}
                 </button>
               </div>
             </div>
