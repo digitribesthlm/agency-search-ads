@@ -61,6 +61,81 @@ export async function POST(request) {
 
     const result = await db.collection('search_ad_changes').insertOne(changeRecord)
 
+    // Also update the actual ad in search_ads collection
+    if (action === 'ADD_HEADLINE') {
+      await db.collection('search_ads').updateOne(
+        { ad_id: ad_id },
+        { 
+          $push: { headlines: new_value },
+          $inc: { headline_count: 1 },
+          $set: { last_modified: new Date(), last_modified_by: session.user.email }
+        }
+      )
+    } else if (action === 'EDIT_HEADLINE') {
+      const fieldIndex = parseInt(field_changed.match(/\[(\d+)\]/)[1])
+      await db.collection('search_ads').updateOne(
+        { ad_id: ad_id },
+        { 
+          $set: { 
+            [`headlines.${fieldIndex}`]: new_value,
+            last_modified: new Date(), 
+            last_modified_by: session.user.email 
+          }
+        }
+      )
+    } else if (action === 'REMOVE_HEADLINE') {
+      const fieldIndex = parseInt(field_changed.match(/\[(\d+)\]/)[1])
+      await db.collection('search_ads').updateOne(
+        { ad_id: ad_id },
+        { 
+          $unset: { [`headlines.${fieldIndex}`]: 1 },
+          $inc: { headline_count: -1 },
+          $set: { last_modified: new Date(), last_modified_by: session.user.email }
+        }
+      )
+      // Clean up null values
+      await db.collection('search_ads').updateOne(
+        { ad_id: ad_id },
+        { $pull: { headlines: null } }
+      )
+    } else if (action === 'ADD_DESCRIPTION') {
+      await db.collection('search_ads').updateOne(
+        { ad_id: ad_id },
+        { 
+          $push: { descriptions: new_value },
+          $inc: { description_count: 1 },
+          $set: { last_modified: new Date(), last_modified_by: session.user.email }
+        }
+      )
+    } else if (action === 'EDIT_DESCRIPTION') {
+      const fieldIndex = parseInt(field_changed.match(/\[(\d+)\]/)[1])
+      await db.collection('search_ads').updateOne(
+        { ad_id: ad_id },
+        { 
+          $set: { 
+            [`descriptions.${fieldIndex}`]: new_value,
+            last_modified: new Date(), 
+            last_modified_by: session.user.email 
+          }
+        }
+      )
+    } else if (action === 'REMOVE_DESCRIPTION') {
+      const fieldIndex = parseInt(field_changed.match(/\[(\d+)\]/)[1])
+      await db.collection('search_ads').updateOne(
+        { ad_id: ad_id },
+        { 
+          $unset: { [`descriptions.${fieldIndex}`]: 1 },
+          $inc: { description_count: -1 },
+          $set: { last_modified: new Date(), last_modified_by: session.user.email }
+        }
+      )
+      // Clean up null values
+      await db.collection('search_ads').updateOne(
+        { ad_id: ad_id },
+        { $pull: { descriptions: null } }
+      )
+    }
+
     return NextResponse.json({
       success: true,
       data: { 

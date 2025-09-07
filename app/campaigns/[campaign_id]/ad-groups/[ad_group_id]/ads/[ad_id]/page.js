@@ -91,11 +91,7 @@ export default function AdEditPage() {
         // Add headline with PENDING status locally
         const updatedAd = {
           ...ad,
-          headlines: [...ad.headlines, { 
-            text: newHeadline, 
-            isNew: true, 
-            addedAt: new Date().toISOString() 
-          }],
+          headlines: [...ad.headlines, newHeadline],
           headline_count: ad.headline_count + 1
         }
         setAd(updatedAd)
@@ -154,7 +150,7 @@ export default function AdEditPage() {
       const data = await response.json()
       if (data.success) {
         const updatedHeadlines = [...ad.headlines]
-        updatedHeadlines[editingHeadline] = { text: newHeadline, isNew: true, addedAt: new Date().toISOString() }
+        updatedHeadlines[editingHeadline] = newHeadline
         setAd({
           ...ad,
           headlines: updatedHeadlines
@@ -256,11 +252,7 @@ export default function AdEditPage() {
       if (data.success) {
         const updatedAd = {
           ...ad,
-          descriptions: [...ad.descriptions, { 
-            text: newDescription, 
-            isNew: true, 
-            addedAt: new Date().toISOString() 
-          }],
+          descriptions: [...ad.descriptions, newDescription],
           description_count: ad.description_count + 1
         }
         setAd(updatedAd)
@@ -319,7 +311,7 @@ export default function AdEditPage() {
       const data = await response.json()
       if (data.success) {
         const updatedDescriptions = [...ad.descriptions]
-        updatedDescriptions[editingDescription] = { text: newDescription, isNew: true, addedAt: new Date().toISOString() }
+        updatedDescriptions[editingDescription] = newDescription
         setAd({
           ...ad,
           descriptions: updatedDescriptions
@@ -516,79 +508,62 @@ export default function AdEditPage() {
               </div>
               
               <div className="space-y-3 mb-4">
-                {ad.headlines.map((headline, index) => {
-                  // Handle both string headlines (existing) and object headlines (new)
-                  const headlineText = typeof headline === 'string' ? headline : headline.text
-                  const isNewHeadline = typeof headline === 'object' && headline.isNew
-                  
-                  return (
-                    <div key={index} className={`flex items-center gap-2 p-3 rounded-lg ${
-                      isNewHeadline 
-                        ? 'bg-warning/20 border border-warning/30' 
-                        : 'bg-base-200'
-                    }`}>
-                      {editingHeadline === index ? (
-                        <div className="flex-1 flex gap-2">
-                          <input
-                            type="text"
-                            className="input input-bordered flex-1"
-                            value={newHeadline}
-                            onChange={(e) => setNewHeadline(e.target.value)}
-                            maxLength={30}
-                          />
-                          <button 
-                            className="btn btn-success btn-sm"
-                            onClick={handleSaveHeadline}
-                          >
-                            Save
-                          </button>
-                          <button 
-                            className="btn btn-ghost btn-sm"
-                            onClick={() => {
-                              setEditingHeadline(null)
-                              setNewHeadline('')
-                            }}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <div className="text-sm font-medium">{headlineText}</div>
-                              {isNewHeadline && (
-                                <div className="badge badge-warning badge-sm">
-                                  PENDING
-                                </div>
-                              )}
-                            </div>
-                            <div className="text-xs text-base-content/50">
-                              {headlineText.length}/30 characters
-                            </div>
+                {ad.headlines.map((headline, index) => (
+                  <div key={index} className="flex items-center gap-2 p-3 bg-base-200 rounded-lg">
+                    {editingHeadline === index ? (
+                      <div className="flex-1 flex gap-2">
+                        <input
+                          type="text"
+                          className="input input-bordered flex-1"
+                          value={newHeadline}
+                          onChange={(e) => setNewHeadline(e.target.value)}
+                          maxLength={30}
+                        />
+                        <button 
+                          className="btn btn-success btn-sm"
+                          onClick={handleSaveHeadline}
+                        >
+                          Save
+                        </button>
+                        <button 
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => {
+                            setEditingHeadline(null)
+                            setNewHeadline('')
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex-1">
+                          <div className="text-sm font-medium">{headline}</div>
+                          <div className="text-xs text-base-content/50">
+                            {headline.length}/30 characters
                           </div>
-                          <button 
-                            className="btn btn-ghost btn-sm"
-                            onClick={() => handleEditHeadline(index)}
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                          <button 
-                            className="btn btn-ghost btn-sm text-error"
-                            onClick={() => handleRemoveHeadline(index)}
-                            disabled={ad.headlines.length <= 1}
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  )
-                })}
+                        </div>
+                        <button 
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => handleEditHeadline(index)}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button 
+                          className="btn btn-ghost btn-sm text-error"
+                          onClick={() => handleRemoveHeadline(index)}
+                          disabled={ad.headlines.length <= 1}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ))}
               </div>
 
               {ad.headlines.length < 15 && (
