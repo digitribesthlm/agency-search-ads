@@ -546,6 +546,7 @@ function NewAdModal({ visible, onClose, form, setForm, formErrors, isSaving, sav
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          
           <div>
             <label className="label"><span className="label-text">Campaign</span></label>
             <select className="select select-bordered w-full"
