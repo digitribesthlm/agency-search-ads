@@ -14,6 +14,21 @@ export default function AdGroupPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
   const [submittingAdId, setSubmittingAdId] = useState(null)
+  const [showNewAdModal, setShowNewAdModal] = useState(false)
+  const [campaignOptions, setCampaignOptions] = useState([])
+  const [adGroupOptions, setAdGroupOptions] = useState([])
+  const [form, setForm] = useState({
+    campaign_id: '',
+    campaign_name: '',
+    ad_group_id: '',
+    ad_group_name: '',
+    headlines: [''],
+    descriptions: [''],
+    final_url: ''
+  })
+  const [formErrors, setFormErrors] = useState([])
+  const [isSavingNewAd, setIsSavingNewAd] = useState(false)
+  const [saveNotice, setSaveNotice] = useState('')
 
   useEffect(() => {
     if (status === 'loading') return
@@ -90,6 +105,138 @@ export default function AdGroupPage() {
       // Keep current UI, optionally surface a non-intrusive message later
     } finally {
       setSubmittingAdId(null)
+    }
+  }
+
+  const openNewAdModal = async () => {
+    try {
+      setSaveNotice('')
+      setFormErrors([])
+      // Preselect current context
+      const initial = {
+        campaign_id: params.campaign_id,
+        campaign_name: adGroup?.campaign_name || '',
+        ad_group_id: params.ad_group_id,
+        ad_group_name: adGroup?.ad_group_name || '',
+        headlines: [''],
+        descriptions: [''],
+        final_url: ''
+      }
+      setForm(initial)
+      // Fetch campaigns
+      const resCampaigns = await fetch('/api/search-campaigns')
+      const dataCampaigns = await resCampaigns.json()
+      if (dataCampaigns.success) {
+        setCampaignOptions(dataCampaigns.data.map(c => ({ id: c.campaign_id, name: c.campaign_name })))
+      }
+      // Fetch ad groups for selected campaign
+      const resGroups = await fetch(`/api/search-campaigns/${params.campaign_id}/ad-groups`)
+      const dataGroups = await resGroups.json()
+      if (dataGroups.success) {
+        setAdGroupOptions(dataGroups.data.map(g => ({ id: g.ad_group_id, name: g.ad_group_name })))
+      }
+      setShowNewAdModal(true)
+    } catch (e) {
+      console.error('Failed to initialize new ad modal', e)
+    }
+  }
+
+  const handleCampaignChange = async (campaign_id) => {
+    const selected = campaignOptions.find(c => c.id === campaign_id)
+    setForm(prev => ({ ...prev, campaign_id, campaign_name: selected?.name || '', ad_group_id: '', ad_group_name: '' }))
+    try {
+      const res = await fetch(`/api/search-campaigns/${campaign_id}/ad-groups`)
+      const data = await res.json()
+      if (data.success) {
+        setAdGroupOptions(data.data.map(g => ({ id: g.ad_group_id, name: g.ad_group_name })))
+      }
+    } catch (e) {
+      console.error('Failed to load ad groups', e)
+    }
+  }
+
+  const handleAdGroupChange = (ad_group_id) => {
+    const selected = adGroupOptions.find(g => g.id === ad_group_id)
+    setForm(prev => ({ ...prev, ad_group_id, ad_group_name: selected?.name || '' }))
+  }
+
+  const updateArrayField = (field, index, value) => {
+    setForm(prev => {
+      const arr = [...prev[field]]
+      arr[index] = value
+      return { ...prev, [field]: arr }
+    })
+  }
+
+  const addArrayItem = (field, limit) => {
+    setForm(prev => {
+      if (prev[field].length >= limit) return prev
+      return { ...prev, [field]: [...prev[field], ''] }
+    })
+  }
+
+  const removeArrayItem = (field, index) => {
+    setForm(prev => {
+      const arr = prev[field].filter((_, i) => i !== index)
+      return { ...prev, [field]: arr }
+    })
+  }
+
+  const validateForm = () => {
+    const errs = []
+    if (!form.campaign_id) errs.push('Campaign is required')
+    if (!form.ad_group_id) errs.push('Ad group is required')
+    const trimmedHeadlines = form.headlines.map(h => (h || '').trim()).filter(h => h.length > 0)
+    const trimmedDescriptions = form.descriptions.map(d => (d || '').trim()).filter(d => d.length > 0)
+    if (trimmedHeadlines.length < 1) errs.push('At least one headline is required')
+    if (trimmedDescriptions.length < 1) errs.push('At least one description is required')
+    if (trimmedHeadlines.length > 15) errs.push('Maximum 15 headlines allowed')
+    if (trimmedDescriptions.length > 4) errs.push('Maximum 4 descriptions allowed')
+    if (new Set(trimmedHeadlines).size !== trimmedHeadlines.length) errs.push('Duplicate headlines not allowed')
+    if (new Set(trimmedDescriptions).size !== trimmedDescriptions.length) errs.push('Duplicate descriptions not allowed')
+    if (trimmedHeadlines.some(h => h.length > 30)) errs.push('Headlines must be 30 characters or less')
+    if (trimmedDescriptions.some(d => d.length > 90)) errs.push('Descriptions must be 90 characters or less')
+    if (!form.final_url || !(form.final_url || '').trim()) errs.push('Landing page URL is required')
+    setFormErrors(errs)
+    return errs.length === 0
+  }
+
+  const submitNewAd = async () => {
+    try {
+      setIsSavingNewAd(true)
+      setSaveNotice('')
+      if (!validateForm()) {
+        setIsSavingNewAd(false)
+        return
+      }
+      const payload = {
+        campaign_id: form.campaign_id,
+        campaign_name: form.campaign_name,
+        ad_group_id: form.ad_group_id,
+        ad_group_name: form.ad_group_name,
+        ad_type: 'RESPONSIVE_SEARCH_AD',
+        headlines: form.headlines.map(h => h.trim()).filter(Boolean),
+        descriptions: form.descriptions.map(d => d.trim()).filter(Boolean),
+        final_url: form.final_url.trim(),
+        pending_action: 'CREATE_AD'
+      }
+      const res = await fetch('/api/pending-search-ads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to create pending ad')
+      }
+      setSaveNotice('Change submitted for approval')
+      // Optionally close modal after short delay
+      setTimeout(() => setShowNewAdModal(false), 800)
+    } catch (e) {
+      console.error('Create ad error:', e)
+      setFormErrors([e.message || 'Failed to create pending ad'])
+    } finally {
+      setIsSavingNewAd(false)
     }
   }
 
@@ -186,7 +333,7 @@ export default function AdGroupPage() {
                 </p>
               </div>
               <div className="flex gap-2">
-                <button className="btn btn-primary btn-sm">
+                <button className="btn btn-primary btn-sm" onClick={openNewAdModal}>
                   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
@@ -357,6 +504,130 @@ export default function AdGroupPage() {
           )}
         </div>
       </div>
+      <NewAdModal
+        visible={showNewAdModal}
+        onClose={() => setShowNewAdModal(false)}
+        form={form}
+        setForm={setForm}
+        formErrors={formErrors}
+        isSaving={isSavingNewAd}
+        saveNotice={saveNotice}
+        campaignOptions={campaignOptions}
+        adGroupOptions={adGroupOptions}
+        onCampaignChange={handleCampaignChange}
+        onAdGroupChange={handleAdGroupChange}
+        onAddItem={addArrayItem}
+        onUpdateItem={updateArrayField}
+        onRemoveItem={removeArrayItem}
+        onSubmit={submitNewAd}
+      />
+    </div>
+  )
+}
+
+// New Ad Modal UI component appended below
+function NewAdModal({ visible, onClose, form, setForm, formErrors, isSaving, saveNotice, campaignOptions, adGroupOptions, onCampaignChange, onAdGroupChange, onAddItem, onUpdateItem, onRemoveItem, onSubmit }) {
+  if (!visible) return null
+  return (
+    <div className="modal modal-open">
+      <div className="modal-box max-w-3xl">
+        <h3 className="font-bold text-lg mb-4">Create Responsive Search Ad</h3>
+
+        {formErrors.length > 0 && (
+          <div className="alert alert-error mb-4">
+            <ul className="list-disc list-inside text-sm">
+              {formErrors.map((e, i) => <li key={i}>{e}</li>)}
+            </ul>
+          </div>
+        )}
+
+        {saveNotice && (
+          <div className="alert alert-success mb-4 text-sm">{saveNotice}</div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="label"><span className="label-text">Campaign</span></label>
+            <select className="select select-bordered w-full"
+              value={form.campaign_id}
+              onChange={(e) => onCampaignChange(e.target.value)}
+            >
+              <option value="">Select campaign</option>
+              {campaignOptions.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label"><span className="label-text">Ad Group</span></label>
+            <select className="select select-bordered w-full"
+              value={form.ad_group_id}
+              onChange={(e) => onAdGroupChange(e.target.value)}
+            >
+              <option value="">Select ad group</option>
+              {adGroupOptions.map(g => (
+                <option key={g.id} value={g.id}>{g.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="md:col-span-2">
+            <label className="label"><span className="label-text">Headlines (max 15, 30 chars each)</span></label>
+            {form.headlines.map((h, idx) => (
+              <div key={idx} className="flex items-center gap-2 mb-2">
+                <input type="text" className="input input-bordered w-full"
+                  maxLength={30}
+                  value={h}
+                  onChange={(e) => onUpdateItem('headlines', idx, e.target.value)}
+                  placeholder={`Headline ${idx + 1}`}
+                />
+                <span className="text-xs text-base-content/50">{(h || '').length}/30</span>
+                {form.headlines.length > 1 && (
+                  <button className="btn btn-ghost btn-xs" onClick={() => onRemoveItem('headlines', idx)}>Remove</button>
+                )}
+              </div>
+            ))}
+            {form.headlines.length < 15 && (
+              <button className="btn btn-ghost btn-sm" onClick={() => onAddItem('headlines', 15)}>Add headline</button>
+            )}
+          </div>
+          <div className="md:col-span-2">
+            <label className="label"><span className="label-text">Descriptions (max 4, 90 chars each)</span></label>
+            {form.descriptions.map((d, idx) => (
+              <div key={idx} className="flex items-center gap-2 mb-2">
+                <input type="text" className="input input-bordered w-full"
+                  maxLength={90}
+                  value={d}
+                  onChange={(e) => onUpdateItem('descriptions', idx, e.target.value)}
+                  placeholder={`Description ${idx + 1}`}
+                />
+                <span className="text-xs text-base-content/50">{(d || '').length}/90</span>
+                {form.descriptions.length > 1 && (
+                  <button className="btn btn-ghost btn-xs" onClick={() => onRemoveItem('descriptions', idx)}>Remove</button>
+                )}
+              </div>
+            ))}
+            {form.descriptions.length < 4 && (
+              <button className="btn btn-ghost btn-sm" onClick={() => onAddItem('descriptions', 4)}>Add description</button>
+            )}
+          </div>
+          <div className="md:col-span-2">
+            <label className="label"><span className="label-text">Final URL</span></label>
+            <input type="url" className="input input-bordered w-full"
+              value={form.final_url}
+              onChange={(e) => setForm(prev => ({ ...prev, final_url: e.target.value }))}
+              placeholder="https://example.com/landing-page"
+            />
+          </div>
+        </div>
+
+        <div className="modal-action">
+          <button className="btn" onClick={onClose} disabled={isSaving}>Cancel</button>
+          <button className="btn btn-primary" onClick={onSubmit} disabled={isSaving}>
+            {isSaving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
+      </div>
+      <div className="modal-backdrop" onClick={onClose}></div>
     </div>
   )
 }
