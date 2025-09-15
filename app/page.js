@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 
 export default function HomePage() {
   const { data: session, status } = useSession()
@@ -12,16 +13,12 @@ export default function HomePage() {
 
   useEffect(() => {
     if (status === 'loading') return
-    if (!session) {
-      router.push('/login')
-      return
-    }
     // Simulate loading
     const timer = setTimeout(() => {
       setIsLoading(false)
-    }, 1000)
+    }, 300)
     return () => clearTimeout(timer)
-  }, [session, status])
+  }, [status])
 
   if (status === 'loading' || isLoading) {
     return (
@@ -31,8 +28,44 @@ export default function HomePage() {
     )
   }
 
+  // If not logged in, show public landing page
   if (!session) {
-    return null // Will redirect to login
+    return (
+      <div className="min-h-screen bg-base-100">
+        <div className="navbar bg-base-200 shadow-sm">
+          <div className="navbar-start">
+            <Link href="/" className="btn btn-ghost text-xl">
+              Search Ads Input
+            </Link>
+          </div>
+          <div className="navbar-end">
+            <Link href="/login" className="btn btn-primary">Sign In</Link>
+          </div>
+        </div>
+
+        <div className="container mx-auto px-4 py-16">
+          <div className="grid grid-cols-1 lg:grid-cols-2 items-center gap-8">
+            <div className="order-2 lg:order-1">
+              <h1 className="text-5xl md:text-6xl font-extrabold leading-tight text-base-content mb-6">
+                <span className="block">SEARCH</span>
+                <span className="block text-primary">ADS</span>
+                <span className="block text-accent">INPUT</span>
+              </h1>
+              <p className="text-lg text-base-content/70 max-w-xl mb-8">
+                Submit responsive search ads with live validation and a pending approval workflow.
+              </p>
+              <div className="flex gap-3">
+                <Link href="/login" className="btn btn-primary">Sign In</Link>
+                <Link href="/register" className="btn btn-outline">Create Account</Link>
+              </div>
+            </div>
+            <div className="order-1 lg:order-2 w-full flex justify-center">
+              <Image src="/images/landing-hero.png" alt="Search Ads Input Illustration" width={720} height={480} className="w-full h-auto max-w-[720px]" />
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -40,9 +73,7 @@ export default function HomePage() {
       {/* Navigation */}
       <div className="navbar bg-base-200 shadow-sm">
         <div className="navbar-start">
-          <Link href="/" className="btn btn-ghost text-xl">
-            Agency Search Ads
-          </Link>
+          <Link href="/" className="btn btn-ghost text-xl">Search Ads Input</Link>
         </div>
         <div className="navbar-end">
           <div className="dropdown dropdown-end">
@@ -52,8 +83,6 @@ export default function HomePage() {
             </div>
             </div>
             <ul tabIndex={0} className="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
-              <li><a>Profile</a></li>
-              <li><a>Settings</a></li>
               {session.user?.role === 'admin' && (
                 <li><Link href="/admin">Admin Dashboard</Link></li>
               )}
@@ -69,9 +98,7 @@ export default function HomePage() {
         <div className="hero bg-base-200 rounded-lg mb-8">
           <div className="hero-content text-center">
             <div className="max-w-md">
-              <h1 className="text-5xl font-bold text-base-content">
-                Search Ads Management
-              </h1>
+              <h1 className="text-5xl font-bold text-base-content">Search Ads Input</h1>
               <p className="py-6 text-base-content/70">
                 Manage your Google Search Ads campaigns, ad groups, and responsive search ads with ease.
               </p>
