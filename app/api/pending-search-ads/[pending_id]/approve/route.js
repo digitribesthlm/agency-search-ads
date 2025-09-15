@@ -69,6 +69,25 @@ export async function POST(request, { params }) {
       )
     }
 
+    // If it's a status change, apply status to the live ad
+    if (['PAUSE_AD', 'RESUME_AD', 'REMOVE_AD'].includes(pendingAd.pending_action) && pendingAd.original_ad_id) {
+      const targetStatus = pendingAd.pending_action === 'PAUSE_AD' ? 'PAUSED'
+        : pendingAd.pending_action === 'RESUME_AD' ? 'ACTIVE'
+        : 'REMOVED'
+
+      await db.collection('search_ads').updateOne(
+        { ad_id: pendingAd.original_ad_id },
+        {
+          $set: {
+            status: targetStatus,
+            last_modified: new Date(),
+            last_modified_by: session.user.email,
+            needs_google_ads_update: true
+          }
+        }
+      )
+    }
+
     // If it's a new ad, create it in live collection
     if (pendingAd.pending_action === 'CREATE_AD') {
       const liveAd = {

@@ -13,6 +13,7 @@ export default function AdGroupPage() {
   const [ads, setAds] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [submittingAdId, setSubmittingAdId] = useState(null)
 
   useEffect(() => {
     if (status === 'loading') return
@@ -62,6 +63,33 @@ export default function AdGroupPage() {
       'REMOVED': 'badge-error'
     }
     return `badge ${statusClasses[status] || 'badge-neutral'}`
+  }
+
+  const submitStatusChange = async (ad, pendingAction) => {
+    try {
+      setSubmittingAdId(ad.ad_id)
+      const res = await fetch('/api/pending-search-ads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          campaign_id: ad.campaign_id,
+          ad_group_id: ad.ad_group_id,
+          pending_action: pendingAction,
+          original_ad_id: ad.ad_id
+        })
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to submit status change')
+      }
+      // Simple feedback; keep live list unchanged, pending will reflect in admin
+      alert('Change submitted for approval')
+    } catch (err) {
+      console.error('Status change error:', err)
+      alert(err.message || 'Failed to submit status change')
+    } finally {
+      setSubmittingAdId(null)
+    }
   }
 
   if (status === 'loading' || isLoading) {
@@ -308,6 +336,31 @@ export default function AdGroupPage() {
                     >
                       Edit Ad
                     </Link>
+                    {ad.status === 'ACTIVE' && (
+                      <button
+                        className="btn btn-outline btn-sm"
+                        disabled={submittingAdId === ad.ad_id}
+                        onClick={() => submitStatusChange(ad, 'PAUSE_AD')}
+                      >
+                        {submittingAdId === ad.ad_id ? 'Submitting...' : 'Pause'}
+                      </button>
+                    )}
+                    {ad.status === 'PAUSED' && (
+                      <button
+                        className="btn btn-outline btn-sm"
+                        disabled={submittingAdId === ad.ad_id}
+                        onClick={() => submitStatusChange(ad, 'RESUME_AD')}
+                      >
+                        {submittingAdId === ad.ad_id ? 'Submitting...' : 'Resume'}
+                      </button>
+                    )}
+                    <button
+                      className="btn btn-outline btn-sm btn-error"
+                      disabled={submittingAdId === ad.ad_id}
+                      onClick={() => submitStatusChange(ad, 'REMOVE_AD')}
+                    >
+                      {submittingAdId === ad.ad_id ? 'Submitting...' : 'Remove'}
+                    </button>
                     <button className="btn btn-ghost btn-sm">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
