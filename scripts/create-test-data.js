@@ -2,7 +2,7 @@ const { MongoClient } = require('mongodb')
 const bcrypt = require('bcryptjs')
 const { v4: uuidv4 } = require('uuid')
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/agency-search-ads'
+const MONGODB_URI = process.env.MONGODB_URI
 
 async function createTestData() {
   const client = new MongoClient(MONGODB_URI)
