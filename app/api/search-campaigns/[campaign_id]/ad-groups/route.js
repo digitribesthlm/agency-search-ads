@@ -17,7 +17,7 @@ export async function GET(request, { params }) {
 
     const { db } = await connectDB()
 
-    // Get ad groups for the campaign
+    // Get ad groups for the campaign with derived status from ads
     const adGroups = await db.collection('search_ads').aggregate([
       {
         $match: {
@@ -33,7 +33,9 @@ export async function GET(request, { params }) {
             ad_group_name: '$ad_group_name'
           },
           ad_count: { $sum: 1 },
-          created_at: { $min: '$created_at' }
+          created_at: { $min: '$created_at' },
+          active_count: { $sum: { $cond: [{ $eq: ['$status', 'ACTIVE'] }, 1, 0] } },
+          paused_count: { $sum: { $cond: [{ $eq: ['$status', 'PAUSED'] }, 1, 0] } }
         }
       },
       {
@@ -42,7 +44,13 @@ export async function GET(request, { params }) {
           ad_group_name: '$_id.ad_group_name',
           ad_count: '$ad_count',
           created_at: '$created_at',
-          status: 'ACTIVE'
+          status: {
+            $cond: [
+              { $gt: ['$active_count', 0] },
+              'ACTIVE',
+              { $cond: [{ $gt: ['$paused_count', 0] }, 'PAUSED', 'ACTIVE'] }
+            ]
+          }
         }
       },
       {

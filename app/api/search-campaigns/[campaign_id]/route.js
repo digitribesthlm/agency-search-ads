@@ -17,12 +17,48 @@ export async function GET(request, { params }) {
 
     const { db } = await connectDB()
 
-    // Get campaign info from first ad in the campaign
-    const campaign = await db.collection('search_ads').findOne({
-      campaign_id: campaign_id,
-      account_id: session.user.accountId,
-      status: { $ne: 'REMOVED' }
-    })
+    // Aggregate campaign info and derive status from underlying ads
+    const campaignAgg = await db.collection('search_ads').aggregate([
+      {
+        $match: {
+          campaign_id: campaign_id,
+          account_id: session.user.accountId,
+          status: { $ne: 'REMOVED' }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            campaign_id: '$campaign_id',
+            campaign_name: '$campaign_name',
+            account_id: '$account_id',
+            account_name: '$account_name'
+          },
+          earliest_created_at: { $min: '$created_at' },
+          active_count: { $sum: { $cond: [{ $eq: ['$status', 'ACTIVE'] }, 1, 0] } },
+          paused_count: { $sum: { $cond: [{ $eq: ['$status', 'PAUSED'] }, 1, 0] } }
+        }
+      },
+      {
+        $project: {
+          campaign_id: '$_id.campaign_id',
+          campaign_name: '$_id.campaign_name',
+          account_id: '$_id.account_id',
+          account_name: '$_id.account_name',
+          created_at: '$earliest_created_at',
+          // Derive status: ACTIVE if any active ads, else PAUSED if any paused, else ACTIVE by default
+          status: {
+            $cond: [
+              { $gt: ['$active_count', 0] },
+              'ACTIVE',
+              { $cond: [{ $gt: ['$paused_count', 0] }, 'PAUSED', 'ACTIVE'] }
+            ]
+          }
+        }
+      }
+    ]).toArray()
+
+    const campaign = campaignAgg[0]
 
     if (!campaign) {
       return NextResponse.json(
@@ -31,14 +67,7 @@ export async function GET(request, { params }) {
       )
     }
 
-    const campaignData = {
-      campaign_id: campaign.campaign_id,
-      campaign_name: campaign.campaign_name,
-      account_id: campaign.account_id,
-      account_name: campaign.account_name,
-      status: 'ACTIVE',
-      created_at: campaign.created_at
-    }
+    const campaignData = campaign
 
     return NextResponse.json({
       success: true,

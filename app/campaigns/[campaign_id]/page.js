@@ -13,6 +13,7 @@ export default function CampaignDetailPage() {
   const [adGroups, setAdGroups] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [hidePaused, setHidePaused] = useState(false)
 
   useEffect(() => {
     if (status === 'loading') return
@@ -219,74 +220,78 @@ export default function CampaignDetailPage() {
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold">Ad Groups</h2>
             <div className="flex gap-2">
-              <select className="select select-bordered select-sm">
-                <option>All Status</option>
-                <option>Active</option>
-                <option>Paused</option>
-              </select>
-              <button className="btn btn-outline btn-sm">
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                </svg>
-                Filter
-              </button>
+              <label className="label cursor-pointer gap-3">
+                <span className="label-text">Hide paused</span>
+                <input
+                  type="checkbox"
+                  className="toggle"
+                  checked={hidePaused}
+                  onChange={(e) => setHidePaused(e.target.checked)}
+                />
+              </label>
             </div>
           </div>
 
-          {adGroups.length === 0 ? (
-            <div className="text-center py-12">
-              <svg className="w-16 h-16 mx-auto text-base-content/30 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-              <h3 className="text-xl font-semibold text-base-content/70 mb-2">No ad groups found</h3>
-              <p className="text-base-content/50 mb-4">Create your first ad group to get started</p>
-              <button className="btn btn-primary">Create Ad Group</button>
-            </div>
-          ) : (
-            adGroups.map((adGroup) => (
-              <div key={adGroup.ad_group_id} className="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow">
-                <div className="card-body">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="card-title text-lg">{adGroup.ad_group_name}</h3>
-                        <div className={getStatusBadge(adGroup.status)}>
-                          {adGroup.status}
+          {(() => {
+            const filteredAdGroups = hidePaused ? adGroups.filter(group => group.status !== 'PAUSED') : adGroups
+            if (filteredAdGroups.length === 0) {
+              return (
+                <div className="text-center py-12">
+                  <svg className="w-16 h-16 mx-auto text-base-content/30 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  <h3 className="text-xl font-semibold text-base-content/70 mb-2">No ad groups found</h3>
+                  <p className="text-base-content/50 mb-4">{hidePaused ? 'Try showing paused ad groups' : 'Create your first ad group to get started'}</p>
+                  {!hidePaused && <button className="btn btn-primary">Create Ad Group</button>}
+                </div>
+              )
+            }
+            return (
+              filteredAdGroups.map((adGroup) => (
+                <div key={adGroup.ad_group_id} className="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow">
+                  <div className="card-body">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="card-title text-lg">{adGroup.ad_group_name}</h3>
+                          <div className={getStatusBadge(adGroup.status)}>
+                            {adGroup.status}
+                          </div>
+                        </div>
+                        <p className="text-sm text-base-content/50 mb-2">
+                          Ad Group ID: {adGroup.ad_group_id}
+                        </p>
+                        <p className="text-sm text-base-content/50">
+                          Created: {new Date(adGroup.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <div className="stat py-0 px-3">
+                          <div className="stat-title text-xs">Ads</div>
+                          <div className="stat-value text-lg">{adGroup.ad_count}</div>
                         </div>
                       </div>
-                      <p className="text-sm text-base-content/50 mb-2">
-                        Ad Group ID: {adGroup.ad_group_id}
-                      </p>
-                      <p className="text-sm text-base-content/50">
-                        Created: {new Date(adGroup.created_at).toLocaleDateString()}
-                      </p>
                     </div>
-                    <div className="text-right">
-                      <div className="stat py-0 px-3">
-                        <div className="stat-title text-xs">Ads</div>
-                        <div className="stat-value text-lg">{adGroup.ad_count}</div>
-                      </div>
+                    <div className="card-actions justify-end mt-4">
+                      <Link 
+                        href={`/campaigns/${campaign.campaign_id}/ad-groups/${adGroup.ad_group_id}`}
+                        className="btn btn-primary btn-sm"
+                      >
+                        Manage Ads
+                      </Link>
+                      <button className="btn btn-ghost btn-sm">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Settings
+                      </button>
                     </div>
-                  </div>
-                  <div className="card-actions justify-end mt-4">
-                    <Link 
-                      href={`/campaigns/${campaign.campaign_id}/ad-groups/${adGroup.ad_group_id}`}
-                      className="btn btn-primary btn-sm"
-                    >
-                      Manage Ads
-                    </Link>
-                    <button className="btn btn-ghost btn-sm">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      Settings
-                    </button>
                   </div>
                 </div>
-              </div>
-            ))
-          )}
+              ))
+            )
+          })()}
         </div>
       </div>
     </div>
