@@ -1,6 +1,7 @@
 import './globals.css'
 import { Inter } from 'next/font/google'
 import { Providers } from './providers'
+import GATracker from './tracker'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -14,6 +15,8 @@ export default function RootLayout({ children }) {
     <html lang="en" data-theme="light">
       <body className={inter.className}>
         <Providers>
+          {/* Google Analytics: loaded only when session exists */}
+          <GATracker />
           {children}
         </Providers>
       </body>

@@ -5,6 +5,7 @@ import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
+import { pageview, trackEvent } from '../lib/ga'
 
 export default function HomePage() {
   const { data: session, status } = useSession()
@@ -19,6 +20,12 @@ export default function HomePage() {
     }, 300)
     return () => clearTimeout(timer)
   }, [status])
+
+  useEffect(() => {
+    if (!isLoading && session) {
+      pageview('/')
+    }
+  }, [isLoading, session])
 
   if (status === 'loading' || isLoading) {
     return (

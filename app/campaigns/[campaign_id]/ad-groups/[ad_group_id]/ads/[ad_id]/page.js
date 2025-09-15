@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import Link from 'next/link'
+import { trackEvent } from '../../../../../../../lib/ga'
 
 export default function AdEditPage() {
   const params = useParams()
@@ -88,6 +89,16 @@ export default function AdEditPage() {
 
       const data = await response.json()
       if (data.success) {
+        // GA4 event: headline added
+        trackEvent({
+          action: 'add_headline',
+          category: 'rsa_edit',
+          label: 'headline_added',
+          params: {
+            headline_text: newHeadline,
+            page_path: `/campaigns/${params.campaign_id}/ad-groups/${params.ad_group_id}/ads/${params.ad_id}`
+          }
+        })
         // Add headline with PENDING status locally
         const updatedAd = {
           ...ad,
@@ -155,6 +166,17 @@ export default function AdEditPage() {
           ...ad,
           headlines: updatedHeadlines
         })
+        trackEvent({
+          action: 'edit_headline',
+          category: 'rsa_edit',
+          label: 'headline_edited',
+          params: {
+            headline_index: editingHeadline,
+            old_value: oldValue,
+            new_value: newHeadline,
+            page_path: `/campaigns/${params.campaign_id}/ad-groups/${params.ad_group_id}/ads/${params.ad_id}`
+          }
+        })
         setEditingHeadline(null)
         setNewHeadline('')
         setError(null)
@@ -200,6 +222,16 @@ export default function AdEditPage() {
           ...ad,
           headlines: updatedHeadlines,
           headline_count: ad.headline_count - 1
+        })
+        trackEvent({
+          action: 'remove_headline',
+          category: 'rsa_edit',
+          label: 'headline_removed',
+          params: {
+            headline_index: index,
+            old_value: removedHeadline,
+            page_path: `/campaigns/${params.campaign_id}/ad-groups/${params.ad_group_id}/ads/${params.ad_id}`
+          }
         })
         setError(null)
       } else {
@@ -256,6 +288,15 @@ export default function AdEditPage() {
           description_count: ad.description_count + 1
         }
         setAd(updatedAd)
+        trackEvent({
+          action: 'add_description',
+          category: 'rsa_edit',
+          label: 'description_added',
+          params: {
+            description_text: newDescription,
+            page_path: `/campaigns/${params.campaign_id}/ad-groups/${params.ad_group_id}/ads/${params.ad_id}`
+          }
+        })
         setNewDescription('')
         setError(null)
       } else {
@@ -316,6 +357,17 @@ export default function AdEditPage() {
           ...ad,
           descriptions: updatedDescriptions
         })
+        trackEvent({
+          action: 'edit_description',
+          category: 'rsa_edit',
+          label: 'description_edited',
+          params: {
+            description_index: editingDescription,
+            old_value: oldValue,
+            new_value: newDescription,
+            page_path: `/campaigns/${params.campaign_id}/ad-groups/${params.ad_group_id}/ads/${params.ad_id}`
+          }
+        })
         setEditingDescription(null)
         setNewDescription('')
         setError(null)
@@ -361,6 +413,16 @@ export default function AdEditPage() {
           ...ad,
           descriptions: updatedDescriptions,
           description_count: ad.description_count - 1
+        })
+        trackEvent({
+          action: 'remove_description',
+          category: 'rsa_edit',
+          label: 'description_removed',
+          params: {
+            description_index: index,
+            old_value: removedDescription,
+            page_path: `/campaigns/${params.campaign_id}/ad-groups/${params.ad_group_id}/ads/${params.ad_id}`
+          }
         })
         setError(null)
       } else {
@@ -727,6 +789,22 @@ export default function AdEditPage() {
               <label className="label">
                 <span className="label-text-alt">The URL where users will land when they click your ad</span>
               </label>
+              <div className="mt-2">
+                <button
+                  className="btn btn-accent btn-sm"
+                  onClick={() => trackEvent({
+                    action: 'edit_final_url',
+                    category: 'rsa_edit',
+                    label: 'final_url_changed',
+                    params: {
+                      new_value: ad.final_url || '',
+                      page_path: `/campaigns/${params.campaign_id}/ad-groups/${params.ad_group_id}/ads/${params.ad_id}`
+                    }
+                  })}
+                >
+                  Track URL Change
+                </button>
+              </div>
             </div>
           </div>
         </div>
