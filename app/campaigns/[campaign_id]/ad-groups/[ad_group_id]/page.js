@@ -60,7 +60,8 @@ export default function AdGroupPage() {
     const statusClasses = {
       'ACTIVE': 'badge-success',
       'PAUSED': 'badge-warning',
-      'REMOVED': 'badge-error'
+      'REMOVED': 'badge-error',
+      'PENDING': 'badge-warning'
     }
     return `badge ${statusClasses[status] || 'badge-neutral'}`
   }
@@ -82,11 +83,11 @@ export default function AdGroupPage() {
       if (!res.ok || !data.success) {
         throw new Error(data.message || 'Failed to submit status change')
       }
-      // Simple feedback; keep live list unchanged, pending will reflect in admin
-      alert('Change submitted for approval')
+      // Optimistic UI: mark this ad as PENDING locally
+      setAds(prev => prev.map(a => a.ad_id === ad.ad_id ? { ...a, status: 'PENDING', _localPending: true } : a))
     } catch (err) {
       console.error('Status change error:', err)
-      alert(err.message || 'Failed to submit status change')
+      // Keep current UI, optionally surface a non-intrusive message later
     } finally {
       setSubmittingAdId(null)
     }
@@ -278,9 +279,17 @@ export default function AdGroupPage() {
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex items-center gap-3">
                       <h3 className="card-title text-lg">Responsive Search Ad</h3>
-                      <div className={getStatusBadge(ad.status)}>
-                        {ad.status}
-                      </div>
+                      {ad.status === 'PENDING' ? (
+                        <div className="tooltip" data-tip="Pending approval. The agency will handle this request.">
+                          <div className={getStatusBadge(ad.status)}>
+                            {ad.status}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className={getStatusBadge(ad.status)}>
+                          {ad.status}
+                        </div>
+                      )}
                     </div>
                     <div className="text-sm text-base-content/50">
                       Ad ID: {ad.ad_id}
@@ -360,19 +369,6 @@ export default function AdGroupPage() {
                       onClick={() => submitStatusChange(ad, 'REMOVE_AD')}
                     >
                       {submittingAdId === ad.ad_id ? 'Submitting...' : 'Remove'}
-                    </button>
-                    <button className="btn btn-ghost btn-sm">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                      Duplicate
-                    </button>
-                    <button className="btn btn-ghost btn-sm">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      Settings
                     </button>
                   </div>
                 </div>
