@@ -1,8 +1,9 @@
 import { getServerSession } from 'next-auth/next'
-import { authOptions } from '../../../../lib/auth'
+import { authOptions } from '../../../api/auth/[...nextauth]/route'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { getAdGroups } from '../../../../lib/data'
+// TODO: Implement server-side data fetching or remove this old page if unused
+const getAdGroups = async () => { return [] }
 
 export default async function CampaignDetailPage({ params }) {
   const session = await getServerSession(authOptions)
