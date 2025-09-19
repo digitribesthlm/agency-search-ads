@@ -211,6 +211,11 @@ export default function CampaignsPage() {
                           <div className="stat-title text-xs">Active Groups</div>
                           <div className="stat-value text-sm">{campaign.active_groups_count || 0}</div>
                         </div>
+                        {/* ✅ ADDED: Show Paused Groups count for debugging */}
+                        <div className="stat py-0 px-3">
+                          <div className="stat-title text-xs">Paused Groups</div>
+                          <div className="stat-value text-sm">{campaign.paused_groups_count || 0}</div>
+                        </div>
                       </div>
                     </div>
                   </div>

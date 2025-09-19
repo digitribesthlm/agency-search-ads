@@ -17,7 +17,7 @@ export async function GET(request, { params }) {
 
     const { db } = await connectDB()
 
-    // ✅ UPDATED: Aggregate campaign info using ACTUAL campaign status from Google Ads
+    // ✅ UPDATED: Get campaign info with COMPLETE business logic for status
     const campaignAgg = await db.collection('search_ads').aggregate([
       {
         $match: {
@@ -26,6 +26,7 @@ export async function GET(request, { params }) {
           status: { $ne: 'REMOVED' }
         }
       },
+      // First group by ad groups to get detailed counts
       {
         $group: {
           _id: {
@@ -33,11 +34,49 @@ export async function GET(request, { params }) {
             campaign_name: '$campaign_name',
             account_id: '$account_id',
             account_name: '$account_name',
-            campaign_status: '$campaign_status'  // ✅ ADDED: Get actual campaign status
+            campaign_status: '$campaign_status',
+            ad_group_id: '$ad_group_id'
           },
+          ad_count_in_group: { $sum: 1 },
           earliest_created_at: { $min: '$created_at' },
-          active_count: { $sum: { $cond: [{ $eq: ['$status', 'ACTIVE'] }, 1, 0] } },
-          paused_count: { $sum: { $cond: [{ $eq: ['$status', 'PAUSED'] }, 1, 0] } }
+          active_count_in_group: { $sum: { $cond: [{ $eq: ['$status', 'ACTIVE'] }, 1, 0] } },
+          paused_count_in_group: { $sum: { $cond: [{ $eq: ['$status', 'PAUSED'] }, 1, 0] } },
+          ad_group_status: { $first: '$ad_group_status' }
+        }
+      },
+      // Then group by campaign to get totals
+      {
+        $group: {
+          _id: {
+            campaign_id: '$_id.campaign_id',
+            campaign_name: '$_id.campaign_name',
+            account_id: '$_id.account_id',
+            account_name: '$_id.account_name',
+            campaign_status: '$_id.campaign_status'
+          },
+          ad_group_count: { $sum: 1 },
+          total_ad_count: { $sum: '$ad_count_in_group' },
+          earliest_created_at: { $min: '$earliest_created_at' },
+          total_active_count: { $sum: '$active_count_in_group' },
+          total_paused_count: { $sum: '$paused_count_in_group' },
+          active_groups_count: {
+            $sum: {
+              $cond: [
+                { $eq: ['$ad_group_status', 'ENABLED'] },
+                1,
+                0
+              ]
+            }
+          },
+          paused_groups_count: {
+            $sum: {
+              $cond: [
+                { $eq: ['$ad_group_status', 'PAUSED'] },
+                1,
+                0
+              ]
+            }
+          }
         }
       },
       {
@@ -46,20 +85,37 @@ export async function GET(request, { params }) {
           campaign_name: '$_id.campaign_name',
           account_id: '$_id.account_id',
           account_name: '$_id.account_name',
-          campaign_status: '$_id.campaign_status',  // ✅ ADDED: Include actual campaign status
+          campaign_status: '$_id.campaign_status',
+          ad_group_count: '$ad_group_count',
+          ad_count: '$total_ad_count',
+          active_count: '$total_active_count',
+          paused_count: '$total_paused_count',
+          active_groups_count: '$active_groups_count',
+          paused_groups_count: '$paused_groups_count',
           created_at: '$earliest_created_at',
-          // ✅ FIXED: Status logic now prioritizes Google Ads campaign status
+          // ✅ COMPLETE BUSINESS LOGIC: Campaign is PAUSED if ANY of these conditions:
+          // 1. Campaign Status = PAUSED, OR
+          // 2. All Ad Groups are PAUSED (active_groups_count = 0), OR  
+          // 3. All Ads are PAUSED (active_count = 0)
           status: {
             $cond: [
-              // If campaign is PAUSED in Google Ads, always show PAUSED
+              // Condition 1: Campaign itself is PAUSED
               { $eq: ['$_id.campaign_status', 'PAUSED'] },
               'PAUSED',
-              // If campaign is ENABLED in Google Ads, check if it has active content
+              // Condition 2: All ad groups are PAUSED (no active groups)
               {
                 $cond: [
-                  { $gt: ['$active_count', 0] },
-                  'ENABLED',
-                  'PAUSED'  // Campaign is enabled but has no active ads
+                  { $eq: ['$active_groups_count', 0] },
+                  'PAUSED',
+                  // Condition 3: All ads are PAUSED (no active ads)
+                  {
+                    $cond: [
+                      { $eq: ['$total_active_count', 0] },
+                      'PAUSED',
+                      // Only ENABLED if campaign is enabled AND has active groups AND active ads
+                      'ENABLED'
+                    ]
+                  }
                 ]
               }
             ]
