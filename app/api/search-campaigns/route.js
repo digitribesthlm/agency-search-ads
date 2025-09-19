@@ -23,35 +23,42 @@ export async function GET(request) {
           status: { $ne: 'REMOVED' }
         }
       },
+      // First group by ad groups to get their status
       {
         $group: {
           _id: {
             campaign_id: '$campaign_id',
             campaign_name: '$campaign_name',
             account_id: '$account_id',
-            account_name: '$account_name'
+            account_name: '$account_name',
+            ad_group_id: '$ad_group_id'
           },
-          ad_group_count: { $addToSet: '$ad_group_id' },
           ad_count: { $sum: 1 },
           created_at: { $min: '$created_at' },
           active_count: { $sum: { $cond: [{ $eq: ['$status', 'ACTIVE'] }, 1, 0] } },
-          paused_count: { $sum: { $cond: [{ $eq: ['$status', 'PAUSED'] }, 1, 0] } },
-          active_ad_group_ids: {
-            $addToSet: {
-              $cond: [
-                { $eq: ['$ad_group_status', 'ENABLED'] },
-                '$ad_group_id',
-                null
-              ]
-            }
-          }
+          ad_group_status: { $first: '$ad_group_status' }
         }
       },
+      // Then group by campaigns
       {
-        $addFields: {
+        $group: {
+          _id: {
+            campaign_id: '$_id.campaign_id',
+            campaign_name: '$_id.campaign_name',
+            account_id: '$_id.account_id',
+            account_name: '$_id.account_name'
+          },
+          ad_group_count: { $sum: 1 },
+          ad_count: { $sum: '$ad_count' },
+          created_at: { $min: '$created_at' },
+          active_count: { $sum: '$active_count' },
           active_groups_count: {
-            $size: {
-              $setDifference: ['$active_ad_group_ids', [null]]
+            $sum: {
+              $cond: [
+                { $eq: ['$ad_group_status', 'ENABLED'] },
+                1,
+                0
+              ]
             }
           }
         }
@@ -62,7 +69,7 @@ export async function GET(request) {
           campaign_name: '$_id.campaign_name',
           account_id: '$_id.account_id',
           account_name: '$_id.account_name',
-          ad_group_count: { $size: '$ad_group_count' },
+          ad_group_count: '$ad_group_count',
           ad_count: '$ad_count',
           active_count: '$active_count',
           active_groups_count: '$active_groups_count',
