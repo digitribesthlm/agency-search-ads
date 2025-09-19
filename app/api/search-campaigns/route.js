@@ -69,12 +69,7 @@ export async function GET(request) {
           created_at: '$created_at',
           status: {
             $cond: [
-              {
-                $or: [
-                  { $gt: ['$active_count', 0] },
-                  { $gt: ['$active_groups_count', 0] }
-                ]
-              },
+              { $gt: ['$active_count', 0] },
               'ACTIVE',
               'PAUSED'
             ]
