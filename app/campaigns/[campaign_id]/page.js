@@ -58,7 +58,8 @@ export default function CampaignDetailPage() {
 
   const getStatusBadge = (status) => {
     const statusClasses = {
-      'ACTIVE': 'badge-success',
+      'ENABLED': 'badge-success',
+      'ACTIVE': 'badge-success', // Keep for backward compatibility
       'PAUSED': 'badge-warning',
       'REMOVED': 'badge-error'
     }
@@ -207,7 +208,7 @@ export default function CampaignDetailPage() {
             </div>
             <div className="stat-title">Active Groups</div>
             <div className="stat-value text-accent">
-              {adGroups.filter(group => group.status === 'ACTIVE').length}
+              {adGroups.filter(group => group.status === 'ENABLED' || group.status === 'ACTIVE').length}
             </div>
             <div className="stat-desc">Currently serving</div>
           </div>

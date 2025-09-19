@@ -73,7 +73,8 @@ export default function AdGroupPage() {
 
   const getStatusBadge = (status) => {
     const statusClasses = {
-      'ACTIVE': 'badge-success',
+      'ENABLED': 'badge-success',
+      'ACTIVE': 'badge-success', // Keep for backward compatibility
       'PAUSED': 'badge-warning',
       'REMOVED': 'badge-error',
       'PENDING': 'badge-warning'
@@ -363,7 +364,7 @@ export default function AdGroupPage() {
             </div>
             <div className="stat-title">Active Ads</div>
             <div className="stat-value text-secondary">
-              {ads.filter(ad => ad.status === 'ACTIVE').length}
+              {ads.filter(ad => ad.status === 'ENABLED' || ad.status === 'ACTIVE').length}
             </div>
             <div className="stat-desc">Currently serving</div>
           </div>
@@ -470,7 +471,7 @@ export default function AdGroupPage() {
                     >
                       Edit Ad
                     </Link>
-                    {ad.status === 'ACTIVE' && (
+                    {(ad.status === 'ENABLED' || ad.status === 'ACTIVE') && (
                       <button
                         className="btn btn-outline btn-sm"
                         disabled={submittingAdId === ad.ad_id}

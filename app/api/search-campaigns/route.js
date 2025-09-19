@@ -82,7 +82,7 @@ export async function GET(request) {
                   { $gt: ['$active_groups_count', 0] }
                 ]
               },
-              'ACTIVE',
+              'ENABLED',
               'PAUSED'
             ]
           }

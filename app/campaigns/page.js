@@ -42,7 +42,8 @@ export default function CampaignsPage() {
 
   const getStatusBadge = (status) => {
     const statusClasses = {
-      'ACTIVE': 'badge-success',
+      'ENABLED': 'badge-success',
+      'ACTIVE': 'badge-success', // Keep for backward compatibility
       'PAUSED': 'badge-warning',
       'REMOVED': 'badge-error'
     }
