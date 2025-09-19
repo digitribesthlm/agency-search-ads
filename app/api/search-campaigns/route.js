@@ -15,7 +15,7 @@ export async function GET(request) {
 
     const { db } = await connectDB()
 
-    // Get campaigns with COMPLETE business logic for status determination
+    // Get campaigns with DUAL STATUS: Google Ads Status + Effective Status
     const campaigns = await db.collection('search_ads').aggregate([
       {
         $match: {
@@ -82,6 +82,10 @@ export async function GET(request) {
           campaign_name: '$_id.campaign_name',
           account_id: '$_id.account_id',
           account_name: '$_id.account_name',
+          // ✅ DUAL STATUS APPROACH:
+          // 1. Google Ads Status - Raw status from Google Ads (what's in MongoDB)
+          google_ads_status: '$_id.campaign_status',
+          // 2. Campaign Status - Keep for backward compatibility (same as google_ads_status)
           campaign_status: '$_id.campaign_status',
           ad_group_count: '$ad_group_count',
           ad_count: '$ad_count',
@@ -90,26 +94,48 @@ export async function GET(request) {
           active_groups_count: '$active_groups_count',
           paused_groups_count: '$paused_groups_count',
           created_at: '$created_at',
-          // ✅ COMPLETE BUSINESS LOGIC: Campaign is PAUSED if ANY of these conditions:
-          // 1. Campaign Status = PAUSED, OR
-          // 2. All Ad Groups are PAUSED (active_groups_count = 0), OR  
-          // 3. All Ads are PAUSED (active_count = 0)
-          status: {
+          // 3. Effective Status - Calculated status based on business logic
+          // Shows whether campaign is actually running or effectively stopped
+          effective_status: {
             $cond: [
-              // Condition 1: Campaign itself is PAUSED
+              // Condition 1: Campaign itself is PAUSED in Google Ads
               { $eq: ['$_id.campaign_status', 'PAUSED'] },
               'PAUSED',
-              // Condition 2: All ad groups are PAUSED (no active groups)
+              // Condition 2: Campaign is ENABLED but all ad groups are PAUSED
               {
                 $cond: [
                   { $eq: ['$active_groups_count', 0] },
                   'PAUSED',
-                  // Condition 3: All ads are PAUSED (no active ads)
+                  // Condition 3: Campaign is ENABLED, has active groups, but all ads are PAUSED
                   {
                     $cond: [
                       { $eq: ['$total_active_count', 0] },
                       'PAUSED',
-                      // Only ENABLED if campaign is enabled AND has active groups AND active ads
+                      // Campaign is truly running: ENABLED + active groups + active ads
+                      'ENABLED'
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          // 4. Status - Main status field (use effective status for display)
+          status: {
+            $cond: [
+              // Condition 1: Campaign itself is PAUSED in Google Ads
+              { $eq: ['$_id.campaign_status', 'PAUSED'] },
+              'PAUSED',
+              // Condition 2: Campaign is ENABLED but all ad groups are PAUSED
+              {
+                $cond: [
+                  { $eq: ['$active_groups_count', 0] },
+                  'PAUSED',
+                  // Condition 3: Campaign is ENABLED, has active groups, but all ads are PAUSED
+                  {
+                    $cond: [
+                      { $eq: ['$total_active_count', 0] },
+                      'PAUSED',
+                      // Campaign is truly running: ENABLED + active groups + active ads
                       'ENABLED'
                     ]
                   }

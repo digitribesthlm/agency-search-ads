@@ -181,11 +181,19 @@ export default function CampaignsPage() {
                       <p className="text-sm text-base-content/70 mb-2">
                         Account: {campaign.account_name} ({campaign.account_id})
                       </p>
-                      {/* ✅ ADDED: Display Google Ads Campaign Status */}
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-sm text-base-content/70">Google Ads Status:</span>
-                        <div className={`badge ${campaign.campaign_status === 'ENABLED' ? 'badge-success' : 'badge-warning'} badge-sm`}>
-                          {campaign.campaign_status || 'UNKNOWN'}
+                      {/* ✅ DUAL STATUS DISPLAY */}
+                      <div className="flex items-center gap-4 mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-base-content/70">Google Ads:</span>
+                          <div className={`badge ${campaign.google_ads_status === 'ENABLED' ? 'badge-success' : 'badge-warning'} badge-sm`}>
+                            {campaign.google_ads_status || campaign.campaign_status || 'UNKNOWN'}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-base-content/70">Effective:</span>
+                          <div className={`badge ${campaign.effective_status === 'ENABLED' ? 'badge-success' : 'badge-error'} badge-sm`}>
+                            {campaign.effective_status || campaign.status}
+                          </div>
                         </div>
                       </div>
                       <p className="text-sm text-base-content/50">
