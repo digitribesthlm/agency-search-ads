@@ -181,6 +181,13 @@ export default function CampaignsPage() {
                       <p className="text-sm text-base-content/70 mb-2">
                         Account: {campaign.account_name} ({campaign.account_id})
                       </p>
+                      {/* ✅ ADDED: Display Google Ads Campaign Status */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-sm text-base-content/70">Google Ads Status:</span>
+                        <div className={`badge ${campaign.campaign_status === 'ENABLED' ? 'badge-success' : 'badge-warning'} badge-sm`}>
+                          {campaign.campaign_status || 'UNKNOWN'}
+                        </div>
+                      </div>
                       <p className="text-sm text-base-content/50">
                         Created: {new Date(campaign.created_at).toLocaleDateString()}
                       </p>
@@ -198,6 +205,11 @@ export default function CampaignsPage() {
                         <div className="stat py-0 px-3">
                           <div className="stat-title text-xs">Active Ads</div>
                           <div className="stat-value text-sm">{campaign.active_count || 0}</div>
+                        </div>
+                        {/* ✅ ADDED: Show Active Groups count */}
+                        <div className="stat py-0 px-3">
+                          <div className="stat-title text-xs">Active Groups</div>
+                          <div className="stat-value text-sm">{campaign.active_groups_count || 0}</div>
                         </div>
                       </div>
                     </div>
