@@ -194,6 +194,10 @@ export default function CampaignsPage() {
                           <div className="stat-title text-xs">Ads</div>
                           <div className="stat-value text-sm">{campaign.ad_count}</div>
                         </div>
+                        <div className="stat py-0 px-3">
+                          <div className="stat-title text-xs">Active Ads</div>
+                          <div className="stat-value text-sm">{campaign.active_count || 0}</div>
+                        </div>
                       </div>
                     </div>
                   </div>

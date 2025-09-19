@@ -35,7 +35,16 @@ export async function GET(request) {
           ad_count: { $sum: 1 },
           created_at: { $min: '$created_at' },
           active_count: { $sum: { $cond: [{ $eq: ['$status', 'ACTIVE'] }, 1, 0] } },
-          paused_count: { $sum: { $cond: [{ $eq: ['$status', 'PAUSED'] }, 1, 0] } }
+          paused_count: { $sum: { $cond: [{ $eq: ['$status', 'PAUSED'] }, 1, 0] } },
+          active_ad_group_ids: {
+            $addToSet: {
+              $cond: [
+                { $eq: ['$ad_group_status', 'ACTIVE'] },
+                '$ad_group_id',
+                null
+              ]
+            }
+          }
         }
       },
       {
@@ -46,12 +55,18 @@ export async function GET(request) {
           account_name: '$_id.account_name',
           ad_group_count: { $size: '$ad_group_count' },
           ad_count: '$ad_count',
+          active_count: '$active_count',
+          active_groups_count: {
+            $size: {
+              $setDifference: ['$active_ad_group_ids', [null]]
+            }
+          },
           created_at: '$created_at',
           status: {
             $cond: [
-              { $gt: ['$active_count', 0] },
+              { $gt: [ { $ifNull: ['$active_groups_count', 0] }, 0 ] },
               'ACTIVE',
-              { $cond: [{ $gt: ['$paused_count', 0] }, 'PAUSED', 'ACTIVE'] }
+              'PAUSED'
             ]
           }
         }
