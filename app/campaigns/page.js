@@ -45,9 +45,44 @@ export default function CampaignsPage() {
       'ENABLED': 'badge-success',
       'ACTIVE': 'badge-success', // Keep for backward compatibility
       'PAUSED': 'badge-warning',
-      'REMOVED': 'badge-error'
+      'REMOVED': 'badge-error',
+      // ✅ NEW: Budget automation statuses
+      'BUDGET_ACTIVE': 'badge-info',
+      'BUDGET_PAUSED': 'badge-warning',
+      'BUDGET_MANAGED': 'badge-accent'
     }
     return `badge ${statusClasses[status] || 'badge-neutral'}`
+  }
+
+  // ✅ NEW: Budget automation helper functions
+  const getBudgetAutomationBadgeClass = (flag) => {
+    switch (flag) {
+      case 'BUDGET_AUTOMATION_ACTIVE':
+        return 'badge-info'
+      case 'LIKELY_BUDGET_PAUSED':
+        return 'badge-warning'
+      case 'BUDGET_MANAGED':
+        return 'badge-accent'
+      case 'NORMAL':
+        return 'badge-success'
+      default:
+        return 'badge-neutral'
+    }
+  }
+
+  const getBudgetAutomationLabel = (flag) => {
+    switch (flag) {
+      case 'BUDGET_AUTOMATION_ACTIVE':
+        return 'AUTO ACTIVE'
+      case 'LIKELY_BUDGET_PAUSED':
+        return 'AUTO PAUSED'
+      case 'BUDGET_MANAGED':
+        return 'MANAGED'
+      case 'NORMAL':
+        return 'NORMAL'
+      default:
+        return 'UNKNOWN'
+    }
   }
 
   if (status === 'loading' || isLoading) {
@@ -181,7 +216,7 @@ export default function CampaignsPage() {
                       <p className="text-sm text-base-content/70 mb-2">
                         Account: {campaign.account_name} ({campaign.account_id})
                       </p>
-                      {/* ✅ DUAL STATUS DISPLAY */}
+                      {/* ✅ ENHANCED: Triple status display with budget automation */}
                       <div className="flex items-center gap-4 mb-2">
                         <div className="flex items-center gap-2">
                           <span className="text-sm text-base-content/70">Google Ads:</span>
@@ -190,9 +225,15 @@ export default function CampaignsPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
+                          <span className="text-sm text-base-content/70">Budget:</span>
+                          <div className={`badge ${getBudgetAutomationBadgeClass(campaign.budget_automation_flag)} badge-sm`}>
+                            {getBudgetAutomationLabel(campaign.budget_automation_flag)}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
                           <span className="text-sm text-base-content/70">Effective:</span>
-                          <div className={`badge ${campaign.effective_status === 'ENABLED' ? 'badge-success' : 'badge-error'} badge-sm`}>
-                            {campaign.effective_status || campaign.status}
+                          <div className={`badge ${campaign.effective_status_calculated === 'ENABLED' ? 'badge-success' : 'badge-error'} badge-sm`}>
+                            {campaign.effective_status_calculated || campaign.status}
                           </div>
                         </div>
                       </div>

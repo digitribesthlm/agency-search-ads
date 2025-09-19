@@ -3,6 +3,22 @@ import { getServerSession } from 'next-auth/next'
 import { authOptions } from '../../auth/[...nextauth]/route'
 import { connectDB } from '../../../../lib/mongodb'
 
+// ✅ NEW: Helper function for budget automation explanations
+function getBudgetExplanation(flag) {
+  switch (flag) {
+    case 'BUDGET_AUTOMATION_ACTIVE':
+      return 'Campaign managed by budget automation - currently active'
+    case 'LIKELY_BUDGET_PAUSED':
+      return 'Campaign likely paused by budget automation'
+    case 'BUDGET_MANAGED':
+      return 'Campaign is managed by budget automation'
+    case 'NORMAL':
+      return 'Campaign operates normally without budget automation'
+    default:
+      return 'Budget automation status unknown'
+  }
+}
+
 export async function GET(request, { params }) {
   try {
     const session = await getServerSession(authOptions)
@@ -35,6 +51,10 @@ export async function GET(request, { params }) {
             account_id: '$account_id',
             account_name: '$account_name',
             campaign_status: '$campaign_status',
+            // ✅ NEW: Budget automation fields from MongoDB
+            budget_automation_flag: '$budget_automation_flag',
+            effective_status: '$effective_status',
+            is_budget_managed: '$is_budget_managed',
             ad_group_id: '$ad_group_id'
           },
           ad_count_in_group: { $sum: 1 },
@@ -52,7 +72,11 @@ export async function GET(request, { params }) {
             campaign_name: '$_id.campaign_name',
             account_id: '$_id.account_id',
             account_name: '$_id.account_name',
-            campaign_status: '$_id.campaign_status'
+            campaign_status: '$_id.campaign_status',
+            // ✅ NEW: Budget automation fields
+            budget_automation_flag: '$_id.budget_automation_flag',
+            effective_status: '$_id.effective_status',
+            is_budget_managed: '$_id.is_budget_managed'
           },
           ad_group_count: { $sum: 1 },
           total_ad_count: { $sum: '$ad_count_in_group' },
@@ -85,10 +109,16 @@ export async function GET(request, { params }) {
           campaign_name: '$_id.campaign_name',
           account_id: '$_id.account_id',
           account_name: '$_id.account_name',
-          // ✅ DUAL STATUS APPROACH:
-          // 1. Google Ads Status - Raw status from Google Ads (what's in MongoDB)
+          // ✅ ENHANCED: Multiple status fields for complete transparency
+          // 1. Google Ads Status - Raw status from Google Ads
           google_ads_status: '$_id.campaign_status',
-          // 2. Campaign Status - Keep for backward compatibility (same as google_ads_status)
+          // 2. Budget Automation Flag - Detection from Apps Script
+          budget_automation_flag: '$_id.budget_automation_flag',
+          // 3. Effective Status - Pre-calculated in Python import
+          effective_status_calculated: '$_id.effective_status',
+          // 4. Is Budget Managed - Boolean flag
+          is_budget_managed: '$_id.is_budget_managed',
+          // 5. Campaign Status - Keep for backward compatibility
           campaign_status: '$_id.campaign_status',
           ad_group_count: '$ad_group_count',
           ad_count: '$total_ad_count',
@@ -121,29 +151,82 @@ export async function GET(request, { params }) {
               }
             ]
           },
-          // 4. Status - Main status field (use effective status for display)
+          // 6. Status - Enhanced status logic using budget automation data
           status: {
-            $cond: [
-              // Condition 1: Campaign itself is PAUSED in Google Ads
-              { $eq: ['$_id.campaign_status', 'PAUSED'] },
-              'PAUSED',
-              // Condition 2: Campaign is ENABLED but all ad groups are PAUSED
-              {
+            $switch: {
+              branches: [
+                // Use pre-calculated effective status if available
+                {
+                  case: { $eq: ['$_id.effective_status', 'ENABLED'] },
+                  then: 'ENABLED'
+                },
+                {
+                  case: { $eq: ['$_id.effective_status', 'BUDGET_MANAGED_ACTIVE'] },
+                  then: 'BUDGET_ACTIVE'
+                },
+                {
+                  case: { $eq: ['$_id.effective_status', 'BUDGET_MANAGED_PAUSED'] },
+                  then: 'BUDGET_PAUSED'
+                },
+                {
+                  case: { $eq: ['$_id.effective_status', 'BUDGET_MANAGED'] },
+                  then: 'BUDGET_MANAGED'
+                },
+                {
+                  case: { $eq: ['$_id.effective_status', 'PAUSED'] },
+                  then: 'PAUSED'
+                }
+              ],
+              default: {
+                // Fallback to original logic if effective_status is missing
                 $cond: [
-                  { $eq: ['$active_groups_count', 0] },
+                  // Condition 1: Campaign itself is PAUSED in Google Ads
+                  { $eq: ['$_id.campaign_status', 'PAUSED'] },
                   'PAUSED',
-                  // Condition 3: Campaign is ENABLED, has active groups, but all ads are PAUSED
+                  // Condition 2: Campaign is ENABLED but all ad groups are PAUSED
                   {
                     $cond: [
-                      { $eq: ['$total_active_count', 0] },
+                      { $eq: ['$active_groups_count', 0] },
                       'PAUSED',
-                      // Campaign is truly running: ENABLED + active groups + active ads
-                      'ENABLED'
+                      // Condition 3: Campaign is ENABLED, has active groups, but all ads are PAUSED
+                      {
+                        $cond: [
+                          { $eq: ['$total_active_count', 0] },
+                          'PAUSED',
+                          // Campaign is truly running: ENABLED + active groups + active ads
+                          'ENABLED'
+                        ]
+                      }
                     ]
                   }
                 ]
               }
-            ]
+            }
+          },
+          
+          // ✅ NEW: Budget Status Badge for UI
+          budget_status_badge: {
+            $switch: {
+              branches: [
+                {
+                  case: { $eq: ['$_id.budget_automation_flag', 'BUDGET_AUTOMATION_ACTIVE'] },
+                  then: 'BUDGET_ACTIVE'
+                },
+                {
+                  case: { $eq: ['$_id.budget_automation_flag', 'LIKELY_BUDGET_PAUSED'] },
+                  then: 'BUDGET_PAUSED'
+                },
+                {
+                  case: { $eq: ['$_id.budget_automation_flag', 'BUDGET_MANAGED'] },
+                  then: 'BUDGET_MANAGED'
+                },
+                {
+                  case: { $eq: ['$_id.budget_automation_flag', 'NORMAL'] },
+                  then: 'NORMAL'
+                }
+              ],
+              default: 'UNKNOWN'
+            }
           }
         }
       }
@@ -162,7 +245,15 @@ export async function GET(request, { params }) {
 
     return NextResponse.json({
       success: true,
-      data: campaignData
+      data: campaignData,
+      // ✅ NEW: Budget automation metadata
+      metadata: {
+        has_budget_automation: campaignData.is_budget_managed,
+        automation_flag: campaignData.budget_automation_flag,
+        effective_status: campaignData.effective_status_calculated,
+        budget_explanation: getBudgetExplanation(campaignData.budget_automation_flag),
+        timestamp: new Date().toISOString()
+      }
     })
 
   } catch (error) {
