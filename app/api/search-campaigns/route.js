@@ -15,7 +15,7 @@ export async function GET(request) {
 
     const { db } = await connectDB()
 
-    // Get campaigns for the user's account with derived status from ads
+    // Get campaigns for the user's account with proper status logic
     const campaigns = await db.collection('search_ads').aggregate([
       {
         $match: {
@@ -48,6 +48,15 @@ export async function GET(request) {
         }
       },
       {
+        $addFields: {
+          active_groups_count: {
+            $size: {
+              $setDifference: ['$active_ad_group_ids', [null]]
+            }
+          }
+        }
+      },
+      {
         $project: {
           campaign_id: '$_id.campaign_id',
           campaign_name: '$_id.campaign_name',
@@ -56,15 +65,16 @@ export async function GET(request) {
           ad_group_count: { $size: '$ad_group_count' },
           ad_count: '$ad_count',
           active_count: '$active_count',
-          active_groups_count: {
-            $size: {
-              $setDifference: ['$active_ad_group_ids', [null]]
-            }
-          },
+          active_groups_count: '$active_groups_count',
           created_at: '$created_at',
           status: {
             $cond: [
-              { $gt: [ { $ifNull: ['$active_groups_count', 0] }, 0 ] },
+              {
+                $or: [
+                  { $gt: ['$active_count', 0] },
+                  { $gt: ['$active_groups_count', 0] }
+                ]
+              },
               'ACTIVE',
               'PAUSED'
             ]
@@ -89,4 +99,3 @@ export async function GET(request) {
     )
   }
 }
-
