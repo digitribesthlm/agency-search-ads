@@ -39,7 +39,7 @@ export async function GET(request) {
           active_ad_group_ids: {
             $addToSet: {
               $cond: [
-                { $eq: ['$ad_group_status', 'ACTIVE'] },
+                { $eq: ['$ad_group_status', 'ENABLED'] },
                 '$ad_group_id',
                 null
               ]
