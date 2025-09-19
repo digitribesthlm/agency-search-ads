@@ -17,7 +17,7 @@ export async function GET(request, { params }) {
 
     const { db } = await connectDB()
 
-    // Aggregate campaign info and derive status from underlying ads
+    // ✅ UPDATED: Aggregate campaign info using ACTUAL campaign status from Google Ads
     const campaignAgg = await db.collection('search_ads').aggregate([
       {
         $match: {
@@ -32,7 +32,8 @@ export async function GET(request, { params }) {
             campaign_id: '$campaign_id',
             campaign_name: '$campaign_name',
             account_id: '$account_id',
-            account_name: '$account_name'
+            account_name: '$account_name',
+            campaign_status: '$campaign_status'  // ✅ ADDED: Get actual campaign status
           },
           earliest_created_at: { $min: '$created_at' },
           active_count: { $sum: { $cond: [{ $eq: ['$status', 'ACTIVE'] }, 1, 0] } },
@@ -45,13 +46,22 @@ export async function GET(request, { params }) {
           campaign_name: '$_id.campaign_name',
           account_id: '$_id.account_id',
           account_name: '$_id.account_name',
+          campaign_status: '$_id.campaign_status',  // ✅ ADDED: Include actual campaign status
           created_at: '$earliest_created_at',
-          // Derive status: ACTIVE if any active ads, else PAUSED if any paused, else ACTIVE by default
+          // ✅ FIXED: Status logic now prioritizes Google Ads campaign status
           status: {
             $cond: [
-              { $gt: ['$active_count', 0] },
-              'ACTIVE',
-              { $cond: [{ $gt: ['$paused_count', 0] }, 'PAUSED', 'ACTIVE'] }
+              // If campaign is PAUSED in Google Ads, always show PAUSED
+              { $eq: ['$_id.campaign_status', 'PAUSED'] },
+              'PAUSED',
+              // If campaign is ENABLED in Google Ads, check if it has active content
+              {
+                $cond: [
+                  { $gt: ['$active_count', 0] },
+                  'ENABLED',
+                  'PAUSED'  // Campaign is enabled but has no active ads
+                ]
+              }
             ]
           }
         }
@@ -82,4 +92,3 @@ export async function GET(request, { params }) {
     )
   }
 }
-
