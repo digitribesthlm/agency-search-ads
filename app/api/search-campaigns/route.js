@@ -15,7 +15,7 @@ export async function GET(request) {
 
     const { db } = await connectDB()
 
-    // Get campaigns for the user's account with proper status logic
+    // Get campaigns for the user's account with proper status logic using ENABLED terminology
     const campaigns = await db.collection('search_ads').aggregate([
       {
         $match: {
